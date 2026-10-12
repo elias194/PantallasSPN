@@ -12,12 +12,16 @@
 @media(max-width:560px){.navigation{align-items:flex-start;gap:16px;flex-direction:column}.navigation label{width:100%}.navigation select{flex:1;min-width:0}.screen-body{display:flex;flex-direction:column-reverse;min-height:0}.operations{border-left:0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:repeat(2,1fr)}.operation{min-height:58px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:14px}.operation:last-child{border-bottom:1px solid var(--line)}.content{padding:23px 19px}.field{grid-template-columns:1fr;gap:7px}.field small{grid-column:1}.fields{gap:18px}.screen-footer{grid-template-columns:1fr 1fr 1fr}.screen-footer button{padding:17px 5px;font-size:13px}.menu{padding:25px 20px}.menu-links{grid-template-columns:1fr;gap:10px}.ticket{padding:18px}.ticket dl{grid-template-columns:125px 1fr;font-size:12px}.window-title{font-size:19px}}
 @media print{body{background:white}.navigation,.operations,.screen-footer,#message,.record-picker,.helper,.form-error{display:none!important}main{padding:0;margin:0;max-width:none}.window{border:0}.window-title{background:white}.screen-body{display:block;min-height:0}.content{padding:20px 0}.ticket{break-inside:avoid}th,td{white-space:normal;font-size:10px}.table-wrap{overflow:visible}}
 
+
+[hidden]{display:none!important}.access-window{max-width:510px;margin:65px auto 0}.access-content{padding:32px}.access-content .field{grid-template-columns:130px minmax(0,1fr)}.access-footer{display:block}.access-footer button{width:100%;border:0}#logout{border:1px solid var(--line);border-radius:3px;background:white;padding:9px 14px;color:#31465b;font-size:13px;white-space:nowrap}#logout:hover{background:#e9eef3}@media(max-width:560px){.access-window{margin-top:35px}.access-content{padding:25px 20px}.access-content .field{grid-template-columns:1fr}#logout{align-self:flex-end}}
+
 </style>
 </head>
 <body>
-  <header class="navigation">
+  <header class="navigation" hidden>
     <a href="#inicio">CaPaz S.A.</a>
     <label for="pantalla">Pantalla <select id="pantalla"></select></label>
+    <button id="logout" type="button">Cerrar sesión</button>
   </header>
   <main id="main"></main>
   <div id="message" role="status" aria-live="polite"></div>
@@ -96,6 +100,33 @@ const modules={
 modules.web.fields=modules.boleteria.fields;
 const menu=[['clientes','Clientes'],['socios','Socios'],['cuotas','Pago de cuotas'],['eventos','Eventos'],['funciones','Funciones'],['boleteria','Venta en boletería'],['web','Venta vía web'],['tickets','Tickets'],['informes','Informes'],['tipos','Tipos de evento'],['salas','Salas'],['generos','Géneros'],['roles','Roles'],['rrhh','Recursos humanos'],['paises','Países de origen'],['documentos','Tipos de documento']];
 let page='inicio',mode='',selectedId='',webClient=null,activeReport='ventas',reportStart=TODAY(),reportEnd=TODAY(),lastSale=null,lastFee=null;
+
+// Acceso de demostración: no protege los archivos públicos de GitHub Pages.
+const ACCESS_KEY='capaz-acceso-demo';
+const ACCESS_USER='admin';
+const ACCESS_PASSWORD='capaz123';
+let accessGranted=false;
+try{accessGranted=sessionStorage.getItem(ACCESS_KEY)==='active';}catch{}
+function showAccessLogin(){
+ document.querySelector('.navigation').hidden=true;
+ document.title='Iniciar sesión · CaPaz';
+ document.querySelector('#main').innerHTML=`<section class="window access-window"><h1 class="window-title">CaPaz S.A. · Iniciar sesión</h1><form id="access-form"><div class="access-content"><div class="fields"><label class="field" for="access-user"><span>Usuario</span><input id="access-user" name="usuario" autocomplete="username" required></label><label class="field" for="access-password"><span>Contraseña</span><input id="access-password" name="clave" type="password" autocomplete="current-password" required></label></div><div id="access-error" class="form-error hidden" role="alert"></div></div><footer class="screen-footer access-footer"><button class="save" type="submit">Ingresar</button></footer></form></section>`;
+ document.querySelector('#access-form').onsubmit=e=>{
+  e.preventDefault();const fd=new FormData(e.target);
+  if(String(fd.get('usuario')||'').trim()!==ACCESS_USER||fd.get('clave')!==ACCESS_PASSWORD){
+   const message=document.querySelector('#access-error');message.textContent='Usuario o contraseña incorrectos.';message.classList.remove('hidden');return;
+  }
+  accessGranted=true;try{sessionStorage.setItem(ACCESS_KEY,'active');}catch{}
+  render(true);
+ };
+}
+function closeAccessSession(){
+ accessGranted=false;webClient=null;selectedId='';
+ try{sessionStorage.removeItem(ACCESS_KEY);}catch{}
+ document.querySelector('#message').classList.remove('visible');
+ location.hash='inicio';render(true);
+}
+
 const selector=document.querySelector('#pantalla');
 selector.innerHTML='<option value="inicio">Menú principal</option>'+menu.map(([k,t])=>`<option value="${k}">${t}</option>`).join('');
 function toast(message){const el=document.querySelector('#message');el.textContent=message;el.classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('visible'),3500);}
@@ -115,7 +146,7 @@ function formField(f,value,locked=false){const attrs=`id="field-${f.key}" name="
 }
 function recordPicker(){const checkMember=page==='socios'&&mode==='consult',table=checkMember?'clientes':modules[page].table,rows=checkMember?data.clientes:rowsFor();return `<div class="record-picker"><label class="field" for="registro"><span>${checkMember?'Seleccionar cliente':'Seleccionar registro'}</span><select id="registro" name="registro" required><option value="">Seleccionar</option>${rows.map(r=>`<option value="${r.id}" ${String(r.id)===String(selectedId)?'selected':''}>${esc(recordLabel(table,r))}</option>`).join('')}</select></label></div>`;}
 function footer(){const label=mode==='login'?'Ingresar':mode==='generate'?'Generar':mode==='print'?'Imprimir':'Guardar',disabled=mode==='consult'||needsRecord()&&!selectedId;return `<footer class="screen-footer"><button class="save" type="submit" ${disabled?'disabled':''}>${label}</button><button type="button" id="cancel">Cancelar</button><button type="button" id="exit">Salir</button></footer>`;}
-function render(reset=false){const next=location.hash.slice(1)||'inicio';if(next!==page||reset){page=modules[next]?next:'inicio';mode=page==='inicio'?'':modules[page].modes[0];selectedId='';}selector.value=page;document.title=(modules[page]?.title||'Menú principal')+' · CaPaz';
+function render(reset=false){if(!accessGranted){showAccessLogin();return;}document.querySelector('.navigation').hidden=false;const next=location.hash.slice(1)||'inicio';if(next!==page||reset){page=modules[next]?next:'inicio';mode=page==='inicio'?'':modules[page].modes[0];selectedId='';}selector.value=page;document.title=(modules[page]?.title||'Menú principal')+' · CaPaz';
  if(page==='inicio'){document.querySelector('#main').innerHTML=`<section class="window"><h1 class="window-title">Sistema de información · CaPaz S.A.</h1><div class="menu"><h2>Seleccioná una pantalla</h2><div class="menu-links">${menu.map(([k,t])=>`<a href="#${k}">${t}</a>`).join('')}</div></div></section>`;return;}
  if(page==='web'&&mode!=='login'&&!webClient)mode='login';
  const m=modules[page],r=selectedId?get(m.table,selectedId):needsRecord()?{}:defaults();
@@ -164,7 +195,7 @@ function values(){const fd=new FormData(document.querySelector('#screen-form')),
 function references(entity,id){const used=[];for(const [key,s]of Object.entries(schemas)){for(const f of s.fields.filter(f=>f.type==='ref'&&f.entity===entity))if(data[key].some(r=>r[f.key]===id))used.push(s.title);}const extra={clientes:[['socios','cliente'],['ventas','cliente']],eventos:[['funciones','evento']],salas:[['funciones','sala']]};for(const [table,key]of extra[entity]||[])if(data[table].some(r=>r[key]===id))used.push(table);return used;}
 function storeRecord(table,r,id){r.id=id||nextId(table);if(id)data[table]=data[table].map(x=>x.id===id?r:x);else data[table].push(r);save();selectedId=String(r.id);toast('Datos guardados.');}
 function finish(){const first=modules[page].modes[0];mode=first;selectedId='';render();}
-function submit(e){e.preventDefault();const id=Number(selectedId),m=modules[page],fd=new FormData(e.target);
+function submit(e){e.preventDefault();if(!accessGranted){showAccessLogin();return;}const id=Number(selectedId),m=modules[page],fd=new FormData(e.target);
  if(mode==='consult')return;
  if(mode==='login'){const c=data.clientes.find(c=>c.correo.toLowerCase()===String(fd.get('correo')).trim().toLowerCase());if(!c||fd.get('clave')!=='capaz123')return error('Correo o contraseña incorrectos.');webClient=c.id;mode='register';render();return;}
  if(mode==='generate'){reportStart=fd.get('desde');reportEnd=fd.get('hasta');activeReport=fd.get('informe');if(reportStart>reportEnd)return error('La fecha inicial no puede superar la final.');document.querySelector('#report-result').innerHTML=reportHTML();return;}
@@ -193,6 +224,7 @@ function inPeriod(d){const day=localDay(d);return day>=reportStart&&day<=reportE
 function reportData(){let headers,rows,total=0,count=0;if(activeReport==='ventas'){headers=['Función','Evento','Fecha de función','Entradas vendidas','Recaudación'];rows=data.funciones.map(f=>{const vs=paidSales().filter(v=>v.funcion===f.id&&inPeriod(v.fecha));if(!vs.length)return null;const n=vs.reduce((s,v)=>s+v.cantidad,0),sum=round(vs.reduce((s,v)=>s+v.monto,0));count+=n;total+=sum;return ['F-'+f.id,eventName(f),date(f.fecha),n,money(sum)];}).filter(Boolean);}else if(activeReport==='proximas'){headers=['Evento','Funciones pendientes','Próxima función','Sala','Estado'];rows=data.eventos.map(ev=>{const fs=data.funciones.filter(f=>f.evento===ev.id&&['Programada','Reprogramada'].includes(f.estado)&&isFuture(f)&&inPeriod(f.fecha)).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));if(!fs.length)return null;return [ev.nombre,fs.length,`${date(fs[0].fecha)} ${fs[0].hora}`,name('salas',fs[0].sala),fs[0].estado];}).filter(Boolean);count=rows.length;}else if(activeReport==='culminadas'){headers=['Evento','Funciones finalizadas','Última función','Última sala'];rows=data.eventos.map(ev=>{const fs=data.funciones.filter(f=>f.evento===ev.id);if(!fs.length||fs.some(f=>['Programada','Reprogramada'].includes(f.estado)))return null;const ended=fs.filter(f=>f.estado==='Finalizada').sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));if(!ended.length||!inPeriod(ended[0].fecha))return null;return [ev.nombre,ended.length,date(ended[0].fecha),name('salas',ended[0].sala)];}).filter(Boolean);count=rows.length;}else if(activeReport==='tickets'){headers=['ID_ticket','Fecha de emisión','Venta','Cliente','Evento','Canal'];rows=data.tickets.filter(t=>get('ventas',t.venta)?.estado==='Confirmada'&&inPeriod(t.emision)).map(t=>{const v=get('ventas',t.venta);return ['CP-'+String(t.id).padStart(6,'0'),date(t.emision),'V-'+v.id,name('clientes',v.cliente),eventName(get('funciones',v.funcion)),v.canal];});count=rows.length;}else if(activeReport==='socios'){headers=['ID_alta','Socio','Documento','Emisión','Vencimiento','Estado'];rows=data.socios.filter(s=>inPeriod(s.emision)).map(s=>['A-'+s.id,name('clientes',s.cliente),get('clientes',s.cliente).documento,date(s.emision),date(s.vencimiento),s.estado]);count=rows.length;}else{headers=['Ticket de cuota','Socio','Fecha','Concepto','Importe','Medio'];rows=data.cuotas.filter(q=>inPeriod(q.fecha)).map(q=>{total+=q.monto;return ['CS-'+String(q.id).padStart(6,'0'),name('clientes',q.cliente),date(q.fecha),q.concepto,money(q.monto),q.medio];});count=rows.length;}return {headers,rows,total:round(total),count};}
 function reportFields(){return `<div class="fields"><label class="field"><span>Tipo de informe</span><select name="informe" id="field-informe">${Object.entries(reports).map(([key,r])=>`<option value="${key}" ${activeReport===key?'selected':''}>${r.title} (${r.period.toLowerCase()})</option>`).join('')}</select></label>${formField(field('desde','Fecha desde','date'),reportStart)}${formField(field('hasta','Fecha hasta','date'),reportEnd)}</div><div class="result" id="report-result"></div>`;}
 function reportHTML(){const r=reportData();return `<h2>${reports[activeReport].title}</h2><div class="table-wrap"><table><thead><tr>${r.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${r.rows.length?r.rows.map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${r.headers.length}">No hay registros en el período.</td></tr>`}</tbody></table></div>${['ventas','cuotas'].includes(activeReport)?`<p class="helper">Total: ${money(r.total)}</p>`:''}`;}
+document.querySelector('#logout').onclick=closeAccessSession;
 selector.onchange=()=>location.hash=selector.value;
 window.addEventListener('hashchange',()=>render(true));
 render(true);
