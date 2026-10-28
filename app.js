@@ -18,7 +18,7 @@ const schemas = {
   roles: {title:'Roles',single:'rol',id:'ID_rol',icon:'▤',fields:[field('nombre','Nombre'),field('apellido','Apellido','text',{required:false,hint:''}),field('descripcion','Descripción','textarea')],columns:['nombre','apellido','descripcion']},
   rrhh: {title:'Recursos humanos',single:'persona',id:'ID_RRHH',icon:'♧',fields:[field('nombre','Nombre'),field('apellido','Apellido'),field('dni','DNI','text',{pattern:'[0-9]{7,8}',hint:'7 u 8 dígitos, sin puntos.'}),ref('rol','Rol','roles'),field('descripcion','Descripción','textarea'),field('fecha','Fecha de registro','date'),field('nacimiento','Fecha de nacimiento','date',{past:true})],columns:['nombre','apellido','dni','rol']},
   paises: {title:'Países de origen',single:'país de origen',id:'ID_pais_origen',icon:'◎',fields:[field('nombre','Nombre'),field('descripcion','Descripción','textarea')],columns:['nombre','descripcion']},
-  eventos: {title:'Eventos',single:'evento',id:'ID_evento',icon:'◉',fields:[field('nombre','Nombre del evento'),ref('tipo','Tipo de evento','tipos'),ref('genero','Género','generos'),field('fecha','Fecha','date'),field('hora','Hora','time'),ref('sala','Sala','salas'),field('precio','Precio de entrada','number',{min:0,step:.01}),ref('pais','País de origen','paises'),field('anio','Año','number',{min:1800,max:2100,step:1})],columns:['nombre','tipo','genero','pais','anio']},
+  eventos: {title:'Eventos',single:'evento',id:'ID_evento',icon:'◉',fields:[field('nombre','Nombre del evento'),ref('tipo','Tipo de evento','tipos'),ref('genero','Género','generos'),field('fecha','Fecha','date'),field('hora','Hora','time'),ref('sala','Sala','salas'),field('precio','Precio de entrada','number',{min:0,step:.01}),ref('pais','País de origen','paises'),field('anio','Año','number',{min:1800,max:2100,step:1}),field('actores','Elenco de la obra','multi-ref',{entity:'rrhh',required:false})],columns:['nombre','tipo','genero','pais','anio']},
   documentos: {title:'Tipos de documento',single:'tipo de documento',id:'ID_tipo_documento',icon:'▱',fields:[field('nombre','Nombre'),field('descripcion','Descripción','textarea')],columns:['nombre','descripcion']},
   clientes: {title:'Clientes',single:'cliente',id:'ID_cliente',icon:'♙',fields:[ref('tipo_documento','Tipo de documento','documentos'),field('documento','Número de documento'),field('nombre','Nombre'),field('apellido','Apellido'),field('telefono','Teléfono','tel'),field('correo','Correo electrónico','email'),field('nacimiento','Fecha de nacimiento','date',{past:true}),field('es_socio','¿Es socio?','select',{options:['No','Sí']}),field('ultimo_pago','Fecha del último pago','date',{required:false,past:true})],columns:['nombre','apellido','documento','correo','es_socio']}
 };
@@ -51,7 +51,8 @@ const name = (table,id) => {const r=get(table,id);return r ? (r.nombre+(r.apelli
 const eventName = f => name('eventos',f?.evento);
 const funcName = id => {const f=get('funciones',id);return f ? `${eventName(f)} · ${date(f.fecha)} ${f.hora}` : 'Función no disponible';};
 const paidSales = () => data.ventas.filter(v=>v.estado==='Confirmada');
-const remaining = id => {const f=get('funciones',id);return f ? Math.max(0,(get('salas',f.sala)?.capacidad||0)-paidSales().filter(v=>v.funcion===f.id).reduce((s,v)=>s+Number(v.cantidad),0)):0;};
+const holdingSales = () => data.ventas.filter(v=>['Confirmada','Reservada'].includes(v.estado));
+const remaining = id => {const f=get('funciones',id);return f ? Math.max(0,(get('salas',f.sala)?.capacidad||0)-holdingSales().filter(v=>v.funcion===f.id).reduce((s,v)=>s+Number(v.cantidad),0)):0;};
 const member = cid => data.socios.find(s=>s.cliente===Number(cid));
 const eligible = cid => {const c=get('clientes',cid),s=member(cid);return c?.es_socio==='Sí' && s?.estado==='Activo' && s.deuda===0 && s.vencimiento>=TODAY();};
 const age = birth => {if(!birth)return null;const t=TODAY().split('-').map(Number),b=birth.split('-').map(Number);return t[0]-b[0]-(t[1]<b[1] || t[1]===b[1]&&t[2]<b[2]?1:0);};
@@ -64,70 +65,328 @@ const modules={
   funciones:{title:'Gestionar funciones',table:'funciones',id:'ID_funcion',modes:['define','reschedule','cancel','state','consult'],fields:[ref('evento','Evento','eventos'),field('fecha','Fecha de función','date'),field('hora','Hora de función','time'),ref('sala','Sala','salas'),field('precio','Precio de función','number',{min:0,step:.01}),field('estado','Estado','select',{options:['Programada','Reprogramada','Finalizada','Cancelada']})]},
   socios:{title:'Gestionar socios',table:'socios',id:'ID_alta',modes:['register','modify','consult','debt'],fields:[ref('cliente','Cliente','clientes'),field('emision','Fecha de emisión','date'),field('vencimiento','Fecha de vencimiento','date'),field('deuda','Deuda','number',{min:0,step:.01}),field('estado','Estado','select',{options:['Activo','Baja']})]},
   boleteria:{title:'Venta de entradas en boletería',table:'ventas',id:'ID_venta',modes:['register','consult','issue'],fields:[ref('cliente','Cliente','clientes'),field('fecha','Fecha de venta','date',{readonly:true}),ref('funcion','Evento / función','funciones'),field('cantidad','Cantidad de entradas','number',{min:1,step:1}),field('precio','Precio por entrada','number',{readonly:true}),field('descuento','Descuento (%)','number',{min:0,max:100,step:.01}),field('monto','Monto total','number',{readonly:true}),field('estado','Estado','select',{options:['Confirmada','Anulada']})]},
-  web:{title:'Venta de entradas vía web',table:'ventas',id:'ID_venta',modes:['login','register','state','consult'],fields:[]},
+  web:{title:'Venta de entradas vía web',table:'ventas',id:'ID_venta',modes:['register','state','consult'],fields:[]},
   cuotas:{title:'Registrar pago de cuotas',table:'cuotas',id:'ID_ticket',modes:['pay','consult','receipt'],fields:[ref('socio','Socio','socios'),field('fecha','Fecha del pago','date',{past:true}),field('deuda','Deuda actual','number',{readonly:true}),field('monto','Importe del pago','number',{min:.01,step:.01}),field('saldo','Saldo restante','number',{readonly:true})]},
   tickets:{title:'Gestionar tickets',table:'tickets',id:'ID_ticket',modes:['consult','print'],fields:[]},
   informes:{title:'Generar informes',modes:['generate'],fields:[]}
 };
 modules.web.fields=modules.boleteria.fields;
-const menu=[['clientes','Clientes'],['socios','Socios'],['cuotas','Pago de cuotas'],['eventos','Eventos'],['funciones','Funciones'],['boleteria','Venta en boletería'],['web','Venta vía web'],['tickets','Tickets'],['informes','Informes'],['tipos','Tipos de evento'],['salas','Salas'],['generos','Géneros'],['roles','Roles'],['rrhh','Recursos humanos'],['paises','Países de origen'],['documentos','Tipos de documento']];
+modules.perfil={title:'Mi perfil',table:'clientes',id:'ID_cliente',modes:['modify'],fields:schemas.clientes.fields.filter(f=>!['es_socio','ultimo_pago'].includes(f.key))};
+modules.misocio={title:'Mi membresía',table:'socios',id:'ID_alta',modes:[],fields:[]};
+modules.cartelera={title:'Cartelera',modes:[],fields:[]};
+modules.reservas={title:'Mis reservas',modes:[],fields:[]};
+const menu=[['clientes','Clientes'],['socios','Socios'],['cuotas','Pago de cuotas'],['eventos','Eventos'],['funciones','Funciones'],['boleteria','Venta en boletería'],['web','Venta vía web'],['tickets','Tickets'],['informes','Informes'],['tipos','Tipos de evento'],['salas','Salas'],['generos','Géneros'],['roles','Roles'],['rrhh','Recursos humanos'],['paises','Países de origen'],['documentos','Tipos de documento'],['cartelera','Cartelera']];
 let page='inicio',mode='',selectedId='',webClient=null,activeReport='ventas',reportStart=TODAY(),reportEnd=TODAY(),lastSale=null,lastFee=null;
-const selector=document.querySelector('#pantalla');
-selector.innerHTML='<option value="inicio">Menú principal</option>'+menu.map(([k,t])=>`<option value="${k}">${t}</option>`).join('');
+
+// Roles de la demostración. Una cuenta pública siempre pertenece a un usuario.
+// El control real de acceso de producción debe implementarse en un servidor.
+const ACCESS_KEY = 'capaz-sesion-v2';
+const ACCESS_USER = 'admin';
+const ACCESS_PASSWORD = 'capaz123';
+const USER_MENU = [['cartelera','Cartelera'],['reservas','Mis reservas'],['misocio','Mi membresía'],['perfil','Mi perfil']];
+const selector = document.querySelector('#pantalla');
+let session = null, accessRole = 'usuario', accessMode = 'login', preferredFunction = '';
+const normalized = value => String(value ?? '').trim().toLowerCase();
+const documentKey = value => String(value ?? '').replace(/[.\s-]/g,'').toUpperCase();
+const isAdmin = () => session?.role === 'admin';
+const currentAccount = () => session?.role === 'usuario' ? get('cuentas', session.accountId) : null;
+const currentClient = () => currentAccount()?.cliente || null;
+const visibleMenu = () => isAdmin() ? menu : USER_MENU;
+const canAccess = key => key === 'inicio' || visibleMenu().some(([id]) => id === key);
+function allowedModes(key=page) {
+  if (!isAdmin() && ['web','tickets'].includes(key)) return [];
+  return modules[key]?.modes || [];
+}
+function scopedRecord(table, id) {
+  const record = get(table, id);
+  if (!record || isAdmin()) return record;
+  const client = currentClient();
+  if (table === 'clientes') return record.id === client ? record : null;
+  if (['ventas','socios','cuotas'].includes(table)) return record.cliente === client ? record : null;
+  if (table === 'tickets') return get('ventas',record.venta)?.cliente === client ? record : null;
+  return record;
+}
+function accessMessage(text) {
+  const el=document.querySelector('#access-error');
+  if(el){el.textContent=text;el.className='form-error';}
+}
+function validateForm(form, showError) {
+  form.querySelectorAll('[aria-invalid]').forEach(el=>el.removeAttribute('aria-invalid'));
+  for(const el of form.elements) {
+    if (!el.willValidate) continue;
+    const label = el.closest('label')?.querySelector('span')?.textContent || el.name;
+    let message = '';
+    if(el.required && !String(el.value).trim()) message=`Completá el campo ${label.toLowerCase()}.`;
+    else if (!el.validity.valid) {
+      if(el.validity.typeMismatch) message='Ingresá un correo electrónico válido.';
+      else if(el.validity.tooShort) message=`${label}: ingresá al menos ${el.minLength} caracteres.`;
+      else if(el.validity.patternMismatch) message=el.name==='usuario'?'El usuario debe tener entre 3 y 30 letras, números, puntos, guiones o guiones bajos.':`Revisá el formato de ${label.toLowerCase()}.`;
+      else if(el.validity.rangeUnderflow) message=`${label}: el valor mínimo es ${el.min}.`;
+      else if(el.validity.rangeOverflow) message=el.type==='date'?'La fecha no puede ser posterior a hoy.':`${label}: el valor máximo es ${el.max}.`;
+      else message=`Revisá el campo ${label.toLowerCase()}.`;
+    }
+    if(message){el.setAttribute('aria-invalid','true');showError(message);el.focus();return false;}
+  }
+  return true;
+}
+function authField(key,label,type='text',extra='') {
+  return `<label class="field" for="access-${key}"><span>${label}</span><input id="access-${key}" name="${key}" type="${type}" required ${extra}></label>`;
+}
+function showAccessLogin(message='') {
+  document.querySelector('.navigation').hidden=true;
+  document.title=(accessMode==='register'?'Crear cuenta':'Iniciar sesión')+' · CaPaz';
+  const register=accessMode==='register';
+  const loginFields=authField('usuario',accessRole==='admin'?'Usuario':'Usuario o correo','text','autocomplete="username"')+
+    authField('clave','Contraseña','password','autocomplete="current-password"');
+  const registerFields=authField('usuario','Usuario','text','autocomplete="username" pattern="[A-Za-z0-9._-]{3,30}" maxlength="30"')+
+    authField('nombre','Nombre','text','autocomplete="given-name" maxlength="80"')+
+    authField('apellido','Apellido','text','autocomplete="family-name" maxlength="80"')+
+    `<label class="field" for="access-tipo_documento"><span>Tipo de documento</span><select id="access-tipo_documento" name="tipo_documento" required>${data.documentos.map(d=>`<option value="${d.id}">${esc(d.nombre)}</option>`).join('')}</select></label>`+
+    authField('documento','Número de documento','text','maxlength="25"')+
+    authField('correo','Correo electrónico','email','autocomplete="email" maxlength="120"')+
+    authField('telefono','Teléfono','tel','autocomplete="tel" maxlength="30"')+
+    authField('nacimiento','Fecha de nacimiento','date',`max="${TODAY()}"`)+
+    authField('clave','Contraseña','password','autocomplete="new-password" minlength="6" maxlength="128"')+
+    authField('confirmacion','Repetir contraseña','password','autocomplete="new-password" minlength="6" maxlength="128"');
+  document.querySelector('#main').innerHTML=`<section class="window access-window ${register?'registration-window':''}">
+    <h1 class="window-title">CaPaz S.A. · ${register?'Crear cuenta de usuario':'Iniciar sesión'}</h1>
+    ${register?'':`<div class="access-tabs" aria-label="Tipo de acceso"><button type="button" data-role="usuario" aria-pressed="${accessRole==='usuario'}">Usuario</button><button type="button" data-role="admin" aria-pressed="${accessRole==='admin'}">Administrador</button></div>`}
+    <form id="access-form" novalidate><div class="access-content">
+      <p class="access-intro">${register?'Registrate para reservar entradas y consultar tus funciones.':accessRole==='admin'?'Ingresá para administrar eventos, funciones y ventas.':'Ingresá para ver la cartelera, reservar entradas y consultar tus reservas.'}</p>
+      ${storageWarning?'<p class="form-error">El navegador no permite guardar los cambios de forma permanente.</p>':''}
+      <div class="fields">${register?registerFields:loginFields}</div>
+      ${register?'<p class="helper">La contraseña debe tener al menos 6 caracteres. El registro crea una cuenta de usuario.</p>':''}
+      <div id="access-error" class="form-error hidden" role="alert" aria-live="polite"></div>
+      ${register?'<button class="text-button" type="button" id="show-login">Ya tengo cuenta · Iniciar sesión</button>':accessRole==='usuario'?'<p class="access-register">¿Todavía no tenés cuenta? <button class="text-button" type="button" id="show-register">Registrarme</button></p>':''}
+    </div><footer class="screen-footer access-footer"><button class="save" type="submit">${register?'Crear cuenta':'Ingresar'}</button></footer></form>
+  </section>`;
+  document.querySelectorAll('.access-tabs button[data-role]').forEach(el=>el.onclick=()=>{accessRole=el.dataset.role;showAccessLogin();});
+  const toggle=document.querySelector(register?'#show-login':'#show-register');
+  if(toggle)toggle.onclick=()=>{accessMode=register?'login':'register';accessRole='usuario';showAccessLogin();};
+  if(message)accessMessage(message);
+  document.querySelector('#access-form').onsubmit=async e=>{
+    e.preventDefault();const form=e.currentTarget;
+    document.querySelector('#access-error').classList.add('hidden');
+    if(!validateForm(form,accessMessage))return;
+    const fd=new FormData(form),submit=form.querySelector('[type=submit]');submit.disabled=true;
+    try {
+      if(register)await registerAccount(fd);
+      else await loginAccount(fd);
+    } catch {accessMessage('No se pudo completar el acceso. Probá abrir la página con una versión actual de Edge o Chrome.');}
+    finally {submit.disabled=false;}
+  };
+}
+async function passwordHash(password,salt) {
+  const encoder=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',encoder.encode(password),'PBKDF2',false,['deriveBits']);
+  const result=await crypto.subtle.deriveBits({name:'PBKDF2',salt:encoder.encode(salt),iterations:100000,hash:'SHA-256'},key,256);
+  return Array.from(new Uint8Array(result),n=>n.toString(16).padStart(2,'0')).join('');
+}
+async function newAccount(client,username,password) {
+  const salt=Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');
+  return {id:nextId('cuentas'),cliente:client,usuario:normalized(username),salt,hash:await passwordHash(password,salt)};
+}
+async function registerAccount(fd) {
+  const username=normalized(fd.get('usuario')),email=normalized(fd.get('correo'));
+  if(username===ACCESS_USER||data.cuentas.some(a=>normalized(a.usuario)===username))return accessMessage('Ese usuario ya está registrado. Elegí otro o iniciá sesión.');
+  if(data.clientes.some(c=>normalized(c.correo)===email))return accessMessage('Ese correo ya está registrado. Iniciá sesión con tu cuenta.');
+  const docType=Number(fd.get('tipo_documento')),documento=documentKey(fd.get('documento'));
+  if(data.clientes.some(c=>c.tipo_documento===docType&&documentKey(c.documento)===documento))return accessMessage('Ya existe un usuario con ese documento.');
+  if(normalized(name('documentos',docType))==='dni'&&!/^\d{7,8}$/.test(documento))return accessMessage('El DNI debe contener 7 u 8 dígitos, sin letras.');
+  if(String(fd.get('clave')).length<6)return accessMessage('La contraseña debe tener al menos 6 caracteres.');
+  if(fd.get('clave')!==fd.get('confirmacion'))return accessMessage('Las contraseñas no coinciden.');
+  if(fd.get('nacimiento')>TODAY())return accessMessage('La fecha de nacimiento no puede ser posterior a hoy.');
+  const client={id:nextId('clientes'),tipo_documento:docType,documento,nombre:String(fd.get('nombre')).trim(),apellido:String(fd.get('apellido')).trim(),correo:email,telefono:String(fd.get('telefono')).trim(),nacimiento:fd.get('nacimiento'),es_socio:'No',ultimo_pago:''};
+  const account=await newAccount(client.id,username,fd.get('clave'));
+  // Revalidar después del cálculo asíncrono para evitar altas simultáneas duplicadas.
+  if(data.cuentas.some(a=>normalized(a.usuario)===username)||data.clientes.some(c=>normalized(c.correo)===email||c.tipo_documento===docType&&documentKey(c.documento)===documento))return accessMessage('El usuario, correo o documento ya está registrado.');
+  data.clientes.push(client);data.cuentas.push(account);save();
+  accessMode='login';showAccessLogin();
+  document.querySelector('#access-usuario').value=username;
+  const message=document.querySelector('#access-error');message.className='success';message.textContent='Cuenta creada. Ya podés iniciar sesión.';
+  document.querySelector('#access-clave').focus();
+}
+async function loginAccount(fd) {
+  const username=normalized(fd.get('usuario')),password=fd.get('clave');
+  if(accessRole==='admin') {
+    if(username!==ACCESS_USER||password!==ACCESS_PASSWORD)return accessMessage('Usuario o contraseña incorrectos.');
+    session={role:'admin'};
+  } else {
+    const account=data.cuentas.find(a=>normalized(a.usuario)===username||normalized(get('clientes',a.cliente)?.correo)===username);
+    if(!account||!get('clientes',account.cliente)||await passwordHash(password,account.salt)!==account.hash)return accessMessage('Usuario o contraseña incorrectos.');
+    session={role:'usuario',accountId:account.id};
+  }
+  try{sessionStorage.setItem(ACCESS_KEY,JSON.stringify(session));}catch{}
+  webClient=currentClient();selectedId='';page='inicio';mode='';location.hash='inicio';render(true);
+}
+function closeAccessSession() {
+  session=null;webClient=null;selectedId='';preferredFunction='';accessMode='login';
+  try{sessionStorage.removeItem(ACCESS_KEY);sessionStorage.removeItem('capaz-acceso-demo');}catch{}
+  document.querySelector('#message').classList.remove('visible');
+  location.hash='inicio';showAccessLogin();
+}
+async function initialize() {
+  document.querySelector('#main').innerHTML='<p class="helper">Preparando las pantallas…</p>';
+  migrateCast();
+  if(!Array.isArray(data.cuentas)) {
+    data.cuentas=[];
+    for(const c of data.clientes) {
+      const username=normalized(c.correo).split('@')[0] || 'usuario'+c.id;
+      data.cuentas.push(await newAccount(c.id,data.cuentas.some(a=>a.usuario===username)?username+c.id:username,'capaz123'));
+    }
+    save();
+  }
+  try {
+    const saved=JSON.parse(sessionStorage.getItem(ACCESS_KEY));
+    if(saved?.role==='admin'||saved?.role==='usuario'&&get('cuentas',saved.accountId)&&get('clientes',get('cuentas',saved.accountId).cliente))session=saved;
+  }catch{}
+  webClient=currentClient();render(true);
+}
 function toast(message){const el=document.querySelector('#message');el.textContent=message;el.classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('visible'),3500);}
 function error(message){const el=document.querySelector('#form-error');el.textContent=message;el.classList.remove('hidden');}
-function recordLabel(table,r){if(table==='funciones')return `F-${r.id} · ${eventName(r)} · ${date(r.fecha)} ${r.hora}`;if(table==='socios')return `A-${r.id} · ${name('clientes',r.cliente)}`;if(table==='ventas')return `V-${r.id} · ${name('clientes',r.cliente)} · ${date(r.fecha)}`;if(table==='cuotas')return `CS-${r.id} · ${name('clientes',r.cliente)}`;if(table==='tickets')return `CP-${r.id} · Venta V-${r.venta}`;return `${r.id} · ${r.nombre||''}${r.apellido?' '+r.apellido:''}`;}
-function rowsFor(){const m=modules[page];let rows=data[m.table]||[];if(page==='boleteria')rows=rows.filter(v=>v.canal==='Boletería');if(page==='web')rows=rows.filter(v=>v.canal==='Web'&&(!webClient||v.cliente===webClient));return rows;}
+function recordLabel(table,r){
+ if(!isAdmin()){
+   if(table==='funciones')return `${eventName(r)} · ${date(r.fecha)} ${r.hora} · ${name('salas',r.sala)}`;
+   if(table==='ventas'){const f=get('funciones',r.funcion);return `${eventName(f)} · ${date(f?.fecha)} ${f?.hora||''} · ${r.cantidad} entrada${r.cantidad===1?'':'s'} · Compra del ${date(r.fecha)}`;}
+   if(table==='tickets'){const v=get('ventas',r.venta),f=get('funciones',v?.funcion);return `Entrada CP-${String(r.id).padStart(6,'0')} · ${eventName(f)} · ${date(f?.fecha)}`;}
+   if(table==='socios')return name('clientes',r.cliente);
+   if(table==='cuotas')return `${date(r.fecha)} · ${money(r.monto)}`;
+   return `${r.nombre||''}${r.apellido?' '+r.apellido:''}`;
+ }
+ if(table==='funciones')return `F-${r.id} · ${eventName(r)} · ${date(r.fecha)} ${r.hora}`;
+ if(table==='socios')return `A-${r.id} · ${name('clientes',r.cliente)}`;
+ if(table==='ventas')return `V-${r.id} · ${name('clientes',r.cliente)} · ${date(r.fecha)}`;
+ if(table==='cuotas')return `CS-${r.id} · ${name('clientes',r.cliente)}`;
+ if(table==='tickets')return `CP-${r.id} · Venta V-${r.venta}`;
+ return `${r.id} · ${r.nombre||''}${r.apellido?' '+r.apellido:''}`;
+}
+function rowsFor(){
+ const m=modules[page];let rows=data[m.table]||[];
+ if(page==='boleteria')rows=rows.filter(v=>v.canal==='Boletería');
+ if(page==='web')rows=rows.filter(v=>v.canal==='Web');
+ if(!isAdmin())rows=rows.filter(r=>!!scopedRecord(m.table,r.id));
+ return rows;
+}
 function needsRecord(){return ['modify','delete','consult','reschedule','cancel','debt','issue','receipt','state','print'].includes(mode)&&page!=='informes';}
 function readonlyMode(){return ['consult','delete','cancel','issue','receipt','print'].includes(mode);}
-function defaults(){const t=TODAY();return {fecha:t,emision:t,vencimiento:addDays(t,30),cantidad:1,deuda:0,saldo:0,descuento:0,precio:0,monto:0,anio:2026,estado:page==='socios'?'Activo':page==='funciones'?'Programada':'Confirmada',cliente:page==='web'?webClient:''};}
-function optionsFor(f){let rows=data[f.entity]||[];if(f.entity==='funciones'&&!readonlyMode())rows=bookable();if(f.entity==='socios'&&mode==='pay')rows=rows.filter(s=>s.estado==='Activo');return rows;}
-function formField(f,value,locked=false){const attrs=`id="field-${f.key}" name="${f.key}"`,required=f.required===false||locked?'':'required';let input;const isRead=locked||f.readonly;
- if(f.type==='ref')input=`<select ${attrs} ${required} ${isRead?'disabled':''}><option value="">Seleccionar</option>${optionsFor(f).map(r=>`<option value="${r.id}" ${Number(value)===r.id?'selected':''}>${esc(recordLabel(f.entity,r))}</option>`).join('')}</select>`;
+function defaults(){const t=TODAY();return {fecha:t,emision:t,vencimiento:addDays(t,30),cantidad:1,deuda:0,saldo:0,descuento:0,precio:0,monto:0,anio:2026,estado:page==='socios'?'Activo':page==='funciones'?'Programada':'Confirmada',cliente:page==='web'?currentClient():'',funcion:preferredFunction,actores:[]};}
+function optionsFor(f){let rows=data[f.entity]||[];if(f.entity==='rrhh'&&f.key==='actores')rows=rows.filter(isActor);if(!isAdmin()&&f.entity==='clientes')rows=rows.filter(c=>c.id===currentClient());if(f.entity==='funciones'&&!readonlyMode())rows=bookable();if(f.entity==='socios'&&mode==='pay')rows=rows.filter(s=>s.estado==='Activo');return rows;}
+function formField(f,value,locked=false){
+ if(f.key==='id'&&!isAdmin())return '';
+ const attrs=`id="field-${f.key}" name="${f.key}"`,required=f.required===false||locked?'':'required';let input;const isRead=locked||f.readonly;
+ if(f.type==='multi-ref') {
+   const selected=Array.isArray(value)?value:[];
+   return `<fieldset class="cast-field" id="cast-field"><legend>${esc(f.label)}</legend><div class="cast-options">${optionsFor(f).map(r=>`<label class="cast-option"><input type="checkbox" name="${f.key}" value="${r.id}" ${selected.includes(r.id)?'checked':''} ${isRead?'disabled':''}><span>${esc(name(f.entity,r.id))}</span></label>`).join('')||'<p class="helper">Registrá actores en Recursos humanos y asignales el rol Actor / Actriz.</p>'}</div><small>Podés seleccionar varios actores para una misma obra.</small></fieldset>`;
+ }
+ else if(f.type==='ref')input=`<select ${attrs} ${required} ${isRead?'disabled':''}><option value="">Seleccionar</option>${optionsFor(f).map(r=>`<option value="${r.id}" ${Number(value)===r.id?'selected':''}>${esc(recordLabel(f.entity,r))}</option>`).join('')}</select>`;
  else if(f.type==='select')input=`<select ${attrs} ${required} ${isRead?'disabled':''}>${f.options.map(v=>`<option ${value===v?'selected':''}>${esc(v)}</option>`).join('')}</select>`;
  else if(f.type==='textarea')input=`<textarea ${attrs} ${required} ${isRead?'readonly':''}>${esc(value??'')}</textarea>`;
  else input=`<input ${attrs} type="${f.type}" value="${esc(value??'')}" ${required} ${isRead?'readonly':''} ${f.min!==undefined?`min="${f.min}"`:''} ${f.max!==undefined?`max="${f.max}"`:f.past?`max="${TODAY()}"`:''} ${f.step!==undefined?`step="${f.step}"`:''} ${f.pattern?`pattern="${f.pattern}"`:''}>`;
  return `<label class="field" for="field-${f.key}"><span>${esc(f.label)}</span>${input}</label>`;
 }
-function recordPicker(){const checkMember=page==='socios'&&mode==='consult',table=checkMember?'clientes':modules[page].table,rows=checkMember?data.clientes:rowsFor();return `<div class="record-picker"><label class="field" for="registro"><span>${checkMember?'Seleccionar cliente':'Seleccionar registro'}</span><select id="registro" name="registro" required><option value="">Seleccionar</option>${rows.map(r=>`<option value="${r.id}" ${String(r.id)===String(selectedId)?'selected':''}>${esc(recordLabel(table,r))}</option>`).join('')}</select></label></div>`;}
-function footer(){const label=mode==='login'?'Ingresar':mode==='generate'?'Generar':mode==='print'?'Imprimir':'Guardar',disabled=mode==='consult'||needsRecord()&&!selectedId;return `<footer class="screen-footer"><button class="save" type="submit" ${disabled?'disabled':''}>${label}</button><button type="button" id="cancel">Cancelar</button><button type="button" id="exit">Salir</button></footer>`;}
-function render(reset=false){const next=location.hash.slice(1)||'inicio';if(next!==page||reset){page=modules[next]?next:'inicio';mode=page==='inicio'?'':modules[page].modes[0];selectedId='';}selector.value=page;document.title=(modules[page]?.title||'Menú principal')+' · CaPaz';
- if(page==='inicio'){document.querySelector('#main').innerHTML=`<section class="window"><h1 class="window-title">Sistema de información · CaPaz S.A.</h1><div class="menu"><h2>Seleccioná una pantalla</h2><div class="menu-links">${menu.map(([k,t])=>`<a href="#${k}">${t}</a>`).join('')}</div></div></section>`;return;}
- if(page==='web'&&mode!=='login'&&!webClient)mode='login';
- const m=modules[page],r=selectedId?get(m.table,selectedId):needsRecord()?{}:defaults();
- let content='';
- if(needsRecord())content+=recordPicker();
- if(page==='informes')content+=reportFields();
- else if(page==='web'&&mode==='login')content+=`<div class="fields">${formField(field('correo','Correo electrónico','email'),'')}${formField(field('clave','Contraseña','password'),'')}</div><p class="helper">Ejemplo: valeria@example.com · clave capaz123.</p>`;
- else if(page==='socios'&&mode==='consult')content+=membershipConsultation(Number(selectedId));
- else if(page==='tickets')content+=selectedId?ticketHTML(get('tickets',selectedId)):'<p class="helper">Seleccioná un ticket para consultar sus datos.</p>';
- else if(mode==='issue')content+=selectedId?saleTickets(Number(selectedId)):'<p class="helper">Seleccioná una venta.</p>';
- else if(mode==='receipt')content+=selectedId?feeHTML(get('cuotas',selectedId)):'<p class="helper">Seleccioná un pago.</p>';
- else if(mode==='debt')content+=debtFields(r);
- else {const fields=(page==='web'||page==='funciones')&&mode==='state'?[field('estado','Estado','select',{options:page==='funciones'?['Programada','Reprogramada','Finalizada','Cancelada']:['Confirmada','Anulada']})]:m.fields;content+=`<div class="fields">${formField(field('id',m.id,'text',{readonly:true,required:false}),selectedId||(needsRecord()?'':nextId(m.table)))}${fields.map(f=>formField(f,r?.[f.key],readonlyMode()||(page==='socios'&&mode==='modify'&&f.key==='cliente')||(page==='web'&&f.key==='cliente')||(page==='funciones'&&['define','reschedule'].includes(mode)&&f.key==='estado')||(['boleteria','web'].includes(page)&&mode==='register'&&f.key==='estado'))).join('')}</div>`;
- if(['boleteria','web'].includes(page)&&mode==='register')content+='<p id="sale-status" class="helper"></p>';
- if(page==='boleteria'&&mode==='consult')content+=saleConsultationChecks(r);
- if(page==='web'&&mode==='consult'&&selectedId)content+=`<div class="result">${saleTickets(Number(selectedId),true)}</div>`;
+function recordPicker(){const checkMember=page==='socios'&&mode==='consult',table=checkMember?'clientes':modules[page].table,rows=checkMember?data.clientes:rowsFor(),label=checkMember?'Seleccionar cliente':!isAdmin()&&page==='web'?'Seleccionar compra':!isAdmin()&&page==='tickets'?'Seleccionar entrada':'Seleccionar registro';return `<div class="record-picker"><label class="field" for="registro"><span>${label}</span><select id="registro" name="registro" required><option value="">Seleccionar</option>${rows.map(r=>`<option value="${r.id}" ${String(r.id)===String(selectedId)?'selected':''}>${esc(recordLabel(table,r))}</option>`).join('')}</select></label></div>`;}
+function footer(){
+ const label=mode==='generate'?'Generar':mode==='print'?'Imprimir':mode==='delete'?'Eliminar':mode==='cancel'?'Cancelar función':page==='web'&&mode==='register'?'Confirmar compra':'Guardar';
+ const disabled=mode==='consult'||needsRecord()&&!selectedId;
+ return `<footer class="screen-footer"><button class="save" type="submit" ${disabled?'disabled':''}>${label}</button><button type="button" id="cancel">Cancelar</button><button type="button" id="exit">Salir</button></footer>`;
+}
+function render(reset=false){
+ if(!session){showAccessLogin();return;}
+ document.querySelector('.navigation').hidden=false;
+ document.querySelector('.navigation').dataset.role=session.role;
+ const who=isAdmin()?'Administrador':name('clientes',currentClient());
+ document.querySelector('#session-label').textContent=isAdmin()?'Administrador':'Usuario · '+who;
+ selector.innerHTML='<option value="inicio">Menú principal</option>'+visibleMenu().map(([k,t])=>`<option value="${k}">${t}</option>`).join('');
+ let next=location.hash.slice(1)||'inicio';
+ // Conservar los enlaces de versiones anteriores sin duplicar pantallas en el menú.
+ if(!isAdmin()&&['web','tickets'].includes(next)){next=next==='web'?'cartelera':'reservas';history.replaceState(null,'','#'+next);}
+ if(!canAccess(next)) {next='inicio';history.replaceState(null,'','#inicio');toast('No tenés permisos para acceder a esa pantalla.');}
+ if(next!==page||reset){page=modules[next]?next:'inicio';mode=allowedModes(page)[0]||'';selectedId='';}
+ if(page!=='inicio'&&page!=='cartelera'&&!allowedModes().includes(mode))mode=allowedModes()[0];
+ selector.value=page;document.title=(modules[page]?.title||'Menú principal')+' · CaPaz';
+ if(page==='inicio'){
+   document.querySelector('#main').innerHTML=`<section class="window"><h1 class="window-title">${isAdmin()?'Administración · CaPaz S.A.':'Mi espacio · CaPaz S.A.'}</h1><div class="menu"><h2>${isAdmin()?'Seleccioná una pantalla de gestión.':`Hola, ${esc(get('clientes',currentClient()).nombre)}. ¿Qué querés hacer?`}</h2><div class="menu-links">${visibleMenu().map(([k,t])=>`<a href="#${k}">${esc(t)}<span aria-hidden="true">→</span></a>`).join('')}</div></div></section>`;return;
  }
- document.querySelector('#main').innerHTML=`<section class="window"><h1 class="window-title">${m.title}</h1><form id="screen-form"><div class="screen-body"><div class="content">${content}<div id="form-error" class="form-error hidden" role="alert"></div></div><aside class="operations" aria-label="Operaciones">${m.modes.map(key=>`<label class="operation ${key===mode?'selected':''}"><span>${actions[key]}</span><input type="radio" name="operacion" value="${key}" ${key===mode?'checked':''}></label>`).join('')}</aside></div>${footer()}</form></section>`;
- document.querySelectorAll('[name="operacion"]').forEach(el=>el.onchange=()=>{mode=el.value;selectedId='';render();});
- if(needsRecord())document.querySelector('#registro').onchange=e=>{selectedId=e.target.value;render();};
- document.querySelector('#cancel').onclick=()=>{mode=m.modes[0];selectedId='';render();};document.querySelector('#exit').onclick=()=>location.hash='inicio';
+ if(page==='cartelera'){renderBillboard();return;}
+ if(page==='reservas'){renderReservations();return;}
+ if(page==='misocio'){renderMyMembership();return;}
+ const m=modules[page];
+ if(page==='perfil')selectedId=String(currentClient());
+ const r=selectedId?scopedRecord(m.table,selectedId):needsRecord()?{}:defaults();
+ let content='';
+ if(needsRecord()&&!['perfil','misocio'].includes(page))content+=recordPicker();
+ if(page==='informes')content+=reportFields();
+ else if(page==='socios'&&mode==='consult')content+=membershipConsultation(Number(selectedId));
+ else if(page==='tickets')content+=selectedId&&r?ticketHTML(r):'<p class="helper">Seleccioná un ticket para consultar sus datos.</p>';
+ else if(mode==='issue')content+=selectedId&&r?saleTickets(Number(selectedId)):'<p class="helper">Seleccioná una venta.</p>';
+ else if(mode==='receipt')content+=selectedId&&r?feeHTML(r):'<p class="helper">Seleccioná un pago.</p>';
+ else if(mode==='debt')content+=debtFields(r);
+ else {
+   const fs=(page==='web'||page==='funciones')&&mode==='state'?[field('estado','Estado','select',{options:page==='funciones'?['Programada','Reprogramada','Finalizada','Cancelada']:['Confirmada','Anulada']})]:m.fields;
+   content+=`<div class="fields">${formField(field('id',m.id,'text',{readonly:true,required:false}),selectedId||(needsRecord()?'':nextId(m.table)))}${fs.map(f=>formField(f,r?.[f.key],readonlyMode()||(page==='socios'&&mode==='modify'&&f.key==='cliente')||(!isAdmin()&&page==='web'&&f.key==='cliente')||(page==='funciones'&&['define','reschedule'].includes(mode)&&f.key==='estado')||(['boleteria','web'].includes(page)&&mode==='register'&&f.key==='estado'))).join('')}</div>`;
+   if(page==='perfil')content+=readonlyFields([['Usuario',currentAccount().usuario],['Tipo de cuenta','Usuario']]);
+   if(['boleteria','web'].includes(page)&&mode==='register')content+='<p id="sale-status" class="helper"></p>';
+   if(page==='boleteria'&&mode==='consult')content+=saleConsultationChecks(r);
+   if(page==='web'&&mode==='consult'&&selectedId&&r)content+=`<div class="result">${saleTickets(Number(selectedId),true)}</div>`;
+ }
+ document.querySelector('#main').innerHTML=`<section class="window"><h1 class="window-title">${m.title}</h1><form id="screen-form" novalidate><div class="screen-body"><div class="content">${content}<div id="form-error" class="form-error hidden" role="alert" aria-live="polite"></div></div><aside class="operations" aria-label="Operaciones">${allowedModes().map(key=>`<label class="operation ${key===mode?'selected':''}"><span>${actions[key]}</span><input type="radio" name="operacion" value="${key}" ${key===mode?'checked':''}></label>`).join('')}</aside></div>${footer()}</form></section>`;
+ document.querySelectorAll('[name="operacion"]').forEach(el=>el.onchange=()=>{if(!allowedModes().includes(el.value))return;mode=el.value;selectedId='';render();});
+ if(needsRecord()&&!['perfil','misocio'].includes(page))document.querySelector('#registro').onchange=e=>{selectedId=e.target.value;render();};
+ document.querySelector('#cancel').onclick=()=>{mode=allowedModes()[0];selectedId='';render();};
+ document.querySelector('#exit').onclick=()=>location.hash='inicio';
  const form=document.querySelector('#screen-form');form.onsubmit=submit;
  if(['boleteria','web'].includes(page)&&mode==='register'){bindFieldUpdates(form,['cliente','funcion','cantidad','descuento'],updateSale);updateSale();}
- if(page==='cuotas'&&mode==='pay'){bindFieldUpdates(form,['socio','monto'],updateFee);}
- if(page==='socios'&&mode==='debt'){bindFieldUpdates(form,['cuotas','importe'],updateDebt);}
- if(page==='funciones'&&mode==='define'){document.querySelector('#field-evento').onchange=e=>{const ev=get('eventos',e.target.value);if(ev)for(const k of ['fecha','hora','sala','precio'])document.querySelector('#field-'+k).value=ev[k];};}
+ if(page==='cuotas'&&mode==='pay')bindFieldUpdates(form,['socio','monto'],updateFee);
+ if(page==='socios'&&mode==='debt')bindFieldUpdates(form,['cuotas','importe'],updateDebt);
+ if(page==='funciones'&&mode==='define')document.querySelector('#field-evento').onchange=e=>{const ev=get('eventos',e.target.value);if(ev)for(const k of ['fecha','hora','sala','precio'])document.querySelector('#field-'+k).value=ev[k];};
+ if(page==='eventos'){
+   const updateCast=()=>{document.querySelector('#cast-field').hidden=!isTheatre(Number(form.elements.tipo.value));};
+   form.elements.tipo.addEventListener('change',updateCast);updateCast();
+ }
 }
 // Los cambios de operación reconstruyen el formulario; sólo los campos de cálculo lo actualizan.
 function bindFieldUpdates(form,names,update){for(const key of names){const control=form.elements[key];if(control){control.oninput=update;control.onchange=update;}}}
 function quotaState(cliente){const s=member(cliente);if(!s)return 'No corresponde';if(s.estado!=='Activo')return 'Baja';if(s.deuda>0)return 'Con deuda';return s.vencimiento<TODAY()?'Vencido':'Al día';}
+function membershipOverview(clientId){
+ const c=get('clientes',clientId),s=member(clientId);
+ if(!s)return {tone:'neutral',label:'Sin membresía',title:'Todavía no tenés una membresía',description:'Podés seguir explorando la cartelera y reservando tus entradas. Si querés asociarte, consultá las condiciones con Administración.'};
+ if(s.estado!=='Activo'||c?.es_socio!=='Sí')return {tone:'neutral',label:'Inactiva',title:'Tu membresía está inactiva',description:'Consultá con Administración si querés reactivarla. Mientras tanto, podés seguir viendo las próximas funciones.'};
+ const expired=s.vencimiento<TODAY(),debt=Number(s.deuda)>0;
+ if(debt)return {tone:'attention',label:'Pago pendiente',title:'Tenés cuotas pendientes',description:'Tu saldo pendiente es de '+money(s.deuda)+'. Para regularizarlo, comunicate con Administración.',note:expired?'La vigencia de tu membresía terminó el '+date(s.vencimiento)+'. También podés consultar cómo renovarla.':''};
+ if(expired)return {tone:'attention',label:'Vencida',title:'Es momento de renovar tu membresía',description:'La vigencia terminó el '+date(s.vencimiento)+'. No tenés saldo pendiente; consultá a Administración para renovarla.'};
+ if(s.emision>TODAY())return {tone:'neutral',label:'Próximamente',title:'Tu membresía comienza pronto',description:'La vigencia comienza el '+date(s.emision)+'. Acá vas a poder consultar sus fechas y tus pagos.'};
+ return {tone:'current',label:'Al día',title:'Tu membresía está al día',description:'No tenés cuotas pendientes. Tu membresía está vigente hasta el '+date(s.vencimiento)+'.'};
+}
+function renderMyMembership(){
+ const clientId=currentClient(),c=get('clientes',clientId),s=member(clientId),overview=membershipOverview(clientId);
+ const payments=data.cuotas.filter(q=>q.cliente===clientId).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))||b.id-a.id);
+ const lastPayment=[c?.ultimo_pago,...payments.map(q=>q.fecha)].filter(Boolean).sort().at(-1);
+ const validUntil=s?.estado==='Activo'&&c?.es_socio==='Sí'&&s?.emision<=TODAY()&&s?.vencimiento>=TODAY();
+ document.querySelector('#main').innerHTML=`<section class='window'><h1 class='window-title'>Mi membresía</h1><div class='membership-content'>
+   <section class='membership-overview ${overview.tone}' aria-labelledby='membership-status-title'>
+     <span class='membership-badge ${overview.tone}'>${overview.label}</span>
+     <h2 id='membership-status-title'>${overview.title}</h2><p>${esc(overview.description)}</p>
+     ${overview.note?`<p class='membership-note'>${esc(overview.note)}</p>`:''}
+     ${s?`<p class='membership-since'>${s.emision>TODAY()?'Inicio de membresía':'Miembro desde'}: ${esc(date(s.emision))}.</p>`:''}
+   </section>
+   ${s?`<dl class='membership-summary'>
+     <div><dt>Saldo pendiente</dt><dd class='${Number(s.deuda)>0?'membership-balance-due':''}'>${money(s.deuda)}</dd></div>
+     <div><dt>${validUntil?'Vigente hasta':s.vencimiento<TODAY()?'Venció el':'Fin de vigencia registrado'}</dt><dd>${esc(date(s.vencimiento))}</dd></div>
+     <div><dt>Último pago registrado</dt><dd>${lastPayment?esc(date(lastPayment)):'Todavía no hay pagos registrados'}</dd></div>
+   </dl>`:''}
+   ${s?`<section class='membership-history' aria-labelledby='membership-payments-title'><h2 id='membership-payments-title'>Tus pagos</h2>
+     ${payments.length?`<div class='table-wrap'><table><thead><tr><th scope='col'>Fecha</th><th scope='col'>Concepto</th><th scope='col'>Medio</th><th scope='col'>Importe</th></tr></thead><tbody>${payments.map(q=>`<tr><td data-label='Fecha'>${esc(date(q.fecha))}</td><td data-label='Concepto'>${esc(q.concepto||'Cuota social')}</td><td data-label='Medio'>${esc(q.medio||'No informado')}</td><td data-label='Importe'>${money(q.monto)}</td></tr>`).join('')}</tbody></table></div>`:'<p class=membership-empty>Todavía no tenés pagos de cuotas registrados.</p>'}
+   </section>`:''}
+   ${s&&overview.tone!=='current'?'<p class=membership-guidance>El pago de cuotas y las renovaciones se gestionan con Administración. Esta pantalla te permite consultar tu información.</p>':''}
+   <div class='membership-actions'><a class='inline-button' href='#cartelera'>Explorar cartelera</a><a class='text-button' href='#perfil'>Ver mi perfil</a></div>
+ </div></section>`;
+}
 function readonlyFields(pairs){return `<div class="fields">${pairs.map(([label,value],i)=>formField(field('consulta-'+i,label,'text',{readonly:true,required:false}),value,true)).join('')}</div>`;}
 function membershipConsultation(cliente){const c=get('clientes',cliente),s=member(cliente),chosen=!!c;return `<h2>Verificar si es socio</h2>`+readonlyFields([
  ['Cliente',chosen?name('clientes',c.id):''],
  ['Documento',c?.documento||''],
  ['¿Es socio?',chosen?(c.es_socio==='Sí'&&s?.estado==='Activo'?'Sí':'No'):''],
- ['ID_alta',s?.id||''],
+ ...(isAdmin()?[['ID_alta',s?.id||'']]:[]),
  ['Fecha de emisión',s?date(s.emision):chosen?'—':''],
  ['Fecha de vencimiento',s?date(s.vencimiento):chosen?'—':''],
  ['Deuda',s?money(s.deuda):chosen?'No corresponde':''],
@@ -136,39 +395,348 @@ function membershipConsultation(cliente){const c=get('clientes',cliente),s=membe
  ['Fecha del último pago',chosen?date(c.ultimo_pago):'']
  ]);}
 function saleConsultationChecks(venta){const c=get('clientes',venta?.cliente);return `<div class="result"><h2>Verificar estado del cliente</h2>${readonlyFields([['Cliente registrado',venta?.cliente?(c?'Sí':'No'):''],['Estado de cuotas',c?quotaState(c.id):'']])}</div>`;}
-function values(){const fd=new FormData(document.querySelector('#screen-form')),r={};const m=modules[page];for(const f of m.fields){r[f.key]=['ref','number'].includes(f.type)?Number(fd.get(f.key)):String(fd.get(f.key)||'').trim();}return r;}
-function references(entity,id){const used=[];for(const [key,s]of Object.entries(schemas)){for(const f of s.fields.filter(f=>f.type==='ref'&&f.entity===entity))if(data[key].some(r=>r[f.key]===id))used.push(s.title);}const extra={clientes:[['socios','cliente'],['ventas','cliente']],eventos:[['funciones','evento']],salas:[['funciones','sala']]};for(const [table,key]of extra[entity]||[])if(data[table].some(r=>r[key]===id))used.push(table);return used;}
+function values(){const fd=new FormData(document.querySelector('#screen-form')),r={};const m=modules[page];for(const f of m.fields){r[f.key]=f.type==='multi-ref'?fd.getAll(f.key).map(Number):['ref','number'].includes(f.type)?Number(fd.get(f.key)):String(fd.get(f.key)||'').trim();}return r;}
+function references(entity,id){const used=[];for(const [key,s]of Object.entries(schemas)){for(const f of s.fields.filter(f=>['ref','multi-ref'].includes(f.type)&&f.entity===entity))if(data[key].some(r=>Array.isArray(r[f.key])?r[f.key].includes(id):r[f.key]===id))used.push(s.title);}const extra={clientes:[['socios','cliente'],['ventas','cliente'],['cuentas','cliente']],eventos:[['funciones','evento']],salas:[['funciones','sala']]};for(const [table,key]of extra[entity]||[])if(data[table].some(r=>r[key]===id))used.push(table);return used;}
 function storeRecord(table,r,id){r.id=id||nextId(table);if(id)data[table]=data[table].map(x=>x.id===id?r:x);else data[table].push(r);save();selectedId=String(r.id);toast('Datos guardados.');}
 function finish(){const first=modules[page].modes[0];mode=first;selectedId='';render();}
-function submit(e){e.preventDefault();const id=Number(selectedId),m=modules[page],fd=new FormData(e.target);
+function submit(e){
+ e.preventDefault();
+ if(!session){showAccessLogin();return;}
+ if(!canAccess(page)||!allowedModes().includes(mode))return error('No tenés permisos para realizar esta operación.');
+ const id=Number(selectedId),m=modules[page],fd=new FormData(e.target);
+ document.querySelector('#form-error').classList.add('hidden');
+ if(needsRecord()&&!['misocio'].includes(page)&&(!id||!scopedRecord(m.table,id)))return error('Seleccioná un registro válido de tu cuenta.');
  if(mode==='consult')return;
- if(mode==='login'){const c=data.clientes.find(c=>c.correo.toLowerCase()===String(fd.get('correo')).trim().toLowerCase());if(!c||fd.get('clave')!=='capaz123')return error('Correo o contraseña incorrectos.');webClient=c.id;mode='register';render();return;}
+ if(!validateForm(e.target,error))return;
  if(mode==='generate'){reportStart=fd.get('desde');reportEnd=fd.get('hasta');activeReport=fd.get('informe');if(reportStart>reportEnd)return error('La fecha inicial no puede superar la final.');document.querySelector('#report-result').innerHTML=reportHTML();return;}
  if(mode==='print'){window.print();return;}
  if(mode==='issue'||mode==='receipt'){toast('Ticket disponible.');return;}
  if(mode==='delete'){const refs=references(page,id);if(refs.length)return error('No se puede eliminar: el registro está utilizado en '+[...new Set(refs)].join(', ')+'.');data[page]=data[page].filter(r=>r.id!==id);save();finish();toast('Registro eliminado.');return;}
  if(mode==='cancel'){get('funciones',id).estado='Cancelada';save();finish();toast('Función cancelada.');return;}
  if(mode==='debt'){const s=get('socios',id);s.deuda=round(Number(fd.get('cuotas'))*Number(fd.get('importe')));save();finish();toast('Deuda actualizada.');return;}
- if(mode==='state'){if(page==='funciones'){get('funciones',id).estado=fd.get('estado');save();finish();toast('Estado actualizado.');return;}const v=get('ventas',id),state=fd.get('estado');if(state==='Confirmada'&&v.estado==='Anulada'){const f=get('funciones',v.funcion);if(!bookable().some(x=>x.id===f.id)||v.cantidad>remaining(f.id))return error('La función no está disponible o no tiene cupo.');}v.estado=state;save();finish();toast('Estado actualizado.');return;}
+ if(mode==='state'){
+   if(page==='funciones'){get('funciones',id).estado=fd.get('estado');save();finish();toast('Estado actualizado.');return;}
+   const v=get('ventas',id),state=fd.get('estado');
+   if(state==='Confirmada'&&v.estado!=='Confirmada'){
+     const f=get('funciones',v.funcion),ownHeld=v.estado==='Reservada'?Number(v.cantidad):0;
+     if(!f||!['Programada','Reprogramada'].includes(f.estado)||!isFuture(f)||get('salas',f.sala)?.estado!=='Disponible'||v.cantidad>remaining(f.id)+ownHeld)return error('La función no está disponible o no tiene cupo.');
+   }
+   v.estado=state;save();finish();toast('Estado actualizado.');return;
+ }
  const r=values();
- if(schemas[page]){if(page==='clientes'){if(data.clientes.some(c=>c.id!==id&&c.tipo_documento===r.tipo_documento&&c.documento===r.documento))return error('Ya existe un cliente con ese documento.');if(data.clientes.some(c=>c.id!==id&&c.correo.toLowerCase()===r.correo.toLowerCase()))return error('Ya existe un cliente con ese correo.');if(member(id)&&r.es_socio==='No')return error('El cliente tiene una adhesión registrada. Cambiá su estado desde Socios.');}if(page==='salas'&&data.funciones.some(f=>f.sala===id&&paidSales().filter(v=>v.funcion===f.id).reduce((sum,v)=>sum+v.cantidad,0)>r.capacidad))return error('La capacidad es menor que las entradas vendidas.');storeRecord(page,r,mode==='modify'?id:0);finish();return;}
- if(page==='socios'){if(mode==='modify')r.cliente=get('socios',id).cliente;if(mode==='register'&&member(r.cliente))return error('El cliente ya tiene una adhesión.');if(r.vencimiento<r.emision)return error('El vencimiento no puede ser anterior a la emisión.');storeRecord('socios',r,mode==='modify'?id:0);get('clientes',r.cliente).es_socio='Sí';save();finish();return;}
- if(page==='funciones'){if(!isFuture(r)&&r.estado!=='Finalizada')return error('Ingresá una fecha y hora futuras.');if(get('salas',r.sala)?.estado!=='Disponible')return error('La sala no está disponible.');if(data.funciones.some(f=>f.id!==id&&f.estado!=='Cancelada'&&f.sala===r.sala&&f.fecha===r.fecha&&f.hora===r.hora))return error('Ya hay una función en esa sala, fecha y hora.');if(mode==='reschedule'&&paidSales().filter(v=>v.funcion===id).reduce((sum,v)=>sum+v.cantidad,0)>get('salas',r.sala).capacidad)return error('La sala no alcanza para las entradas vendidas.');r.estado=mode==='reschedule'?'Reprogramada':'Programada';storeRecord('funciones',r,mode==='reschedule'?id:0);finish();return;}
- if(page==='boleteria'||page==='web'){if(page==='web')r.cliente=webClient;const f=get('funciones',r.funcion);if(!f||!bookable().some(x=>x.id===f.id))return error('La función no está disponible.');if(!Number.isInteger(r.cantidad)||r.cantidad<1||r.cantidad>remaining(f.id))return error('Revisá la cantidad y la disponibilidad de entradas.');const minAge=get('generos',get('eventos',f.evento).genero).edad_minima;if(age(get('clientes',r.cliente).nacimiento)<minAge)return error('El cliente no cumple la edad mínima del evento.');r.precio=f.precio;r.descuento=eligible(r.cliente)?r.descuento:0;r.monto=round(r.precio*r.cantidad*(1-r.descuento/100));r.canal=page==='web'?'Web':'Boletería';if(page==='web'){r.envio_tickets='Simulado';r.correo_tickets=get('clientes',r.cliente).correo;}r.estado='Confirmada';r.fecha=TODAY();r.emision=now();storeRecord('ventas',r,0);lastSale=r.id;for(let n=0;n<r.cantidad;n++)data.tickets.push({id:nextId('tickets'),venta:r.id,emision:now()});save();mode=page==='web'?'consult':'issue';selectedId=String(r.id);render();return;}
+ if(schemas[page]||page==='perfil'){
+   const entity=page==='perfil'?'clientes':page;
+   if(entity==='clientes'){
+     r.correo=normalized(r.correo);r.documento=documentKey(r.documento);
+     if(data.clientes.some(c=>c.id!==id&&c.tipo_documento===r.tipo_documento&&documentKey(c.documento)===r.documento))return error('Ya existe un cliente con ese documento.');
+     if(data.clientes.some(c=>c.id!==id&&normalized(c.correo)===r.correo))return error('Ya existe un usuario registrado con ese correo.');
+     if(normalized(name('documentos',r.tipo_documento))==='dni'&&!/^\d{7,8}$/.test(r.documento))return error('El DNI debe contener 7 u 8 dígitos.');
+     if(member(id)&&r.es_socio==='No')return error('El cliente tiene una adhesión registrada. Cambiá su estado desde Socios.');
+   }
+   if(page==='perfil'){
+     if(id!==currentClient())return error('Solo podés modificar tu perfil.');
+     Object.assign(get('clientes',id),r);save();render();toast('Perfil actualizado.');return;
+   }
+   if(page==='salas'&&data.funciones.some(f=>f.sala===id&&holdingSales().filter(v=>v.funcion===f.id).reduce((sum,v)=>sum+v.cantidad,0)>r.capacidad))return error('La capacidad es menor que las entradas vendidas o reservadas.');
+   if(page==='eventos'){
+     r.actores=[...new Set(r.actores)];
+     if(isTheatre(r.tipo)&&!r.actores.length)return error('Seleccioná al menos un actor para el elenco. Podés agregar varios.');
+     if(r.actores.some(actor=>!get('rrhh',actor)||!isActor(get('rrhh',actor))))return error('Seleccioná actores válidos del elenco.');
+     if(!isTheatre(r.tipo))r.actores=[];
+   }
+   if(page==='rrhh'&&data.eventos.some(ev=>ev.actores?.includes(id))&&!isActor({...r,id}))return error('Esta persona integra el elenco de una obra. Conservá su rol de actor o quitá primero la asignación.');
+   if(page==='roles'&&data.rrhh.some(person=>person.rol===id&&data.eventos.some(ev=>ev.actores?.includes(person.id)))&&!actorRoleName(r.nombre))return error('El rol está asignado a actores de una obra. Conservá un nombre de rol de actor o actriz.');
+   storeRecord(page,r,mode==='modify'?id:0);finish();return;
+ }
+ if(page==='socios'){if(mode==='modify')r.cliente=get('socios',id).cliente;if(mode==='register'&&member(r.cliente))return error('El cliente ya tiene una adhesión.');if(!get('clientes',r.cliente))return error('Seleccioná un cliente válido.');if(r.vencimiento<r.emision)return error('El vencimiento no puede ser anterior a la emisión.');storeRecord('socios',r,mode==='modify'?id:0);get('clientes',r.cliente).es_socio='Sí';save();finish();return;}
+ if(page==='funciones'){if(!isFuture(r)&&r.estado!=='Finalizada')return error('Ingresá una fecha y hora futuras.');if(get('salas',r.sala)?.estado!=='Disponible')return error('La sala no está disponible.');if(data.funciones.some(f=>f.id!==id&&f.estado!=='Cancelada'&&f.sala===r.sala&&f.fecha===r.fecha&&f.hora===r.hora))return error('Ya hay una función en esa sala, fecha y hora.');if(mode==='reschedule'&&holdingSales().filter(v=>v.funcion===id).reduce((sum,v)=>sum+v.cantidad,0)>get('salas',r.sala).capacidad)return error('La sala no alcanza para las entradas vendidas.');r.estado=mode==='reschedule'?'Reprogramada':'Programada';storeRecord('funciones',r,mode==='reschedule'?id:0);finish();return;}
+ if(page==='boleteria'||page==='web'){
+   if(!isAdmin())r.cliente=currentClient();
+   const customer=get('clientes',r.cliente),f=get('funciones',r.funcion);
+   if(!customer)return error('Seleccioná un cliente válido.');
+   if(!f||!bookable().some(x=>x.id===f.id))return error('La función no está disponible.');
+   if(!Number.isInteger(r.cantidad)||r.cantidad<1||r.cantidad>remaining(f.id))return error('Revisá la cantidad y la disponibilidad de entradas.');
+   const minAge=get('generos',get('eventos',f.evento).genero).edad_minima;
+   if(age(customer.nacimiento)<minAge)return error('El cliente no cumple la edad mínima del evento.');
+   r.precio=f.precio;
+   r.descuento=isAdmin()&&eligible(r.cliente)?r.descuento:0;
+   r.monto=round(r.precio*r.cantidad*(1-r.descuento/100));r.canal=page==='web'?'Web':'Boletería';
+   if(page==='web'){r.envio_tickets='Simulado';r.correo_tickets=customer.correo;}
+   r.estado='Confirmada';r.fecha=TODAY();r.emision=now();storeRecord('ventas',r,0);lastSale=r.id;
+   for(let n=0;n<r.cantidad;n++)data.tickets.push({id:nextId('tickets'),venta:r.id,emision:now()});
+   save();preferredFunction='';mode=page==='web'?'consult':'issue';selectedId=String(r.id);render();return;
+ }
  if(page==='cuotas'){const s=get('socios',r.socio);if(!s||s.estado!=='Activo')return error('Seleccioná un socio activo.');if(r.monto<=0)return error('El importe debe ser mayor a cero.');if(s.deuda>0&&r.monto>s.deuda)return error('El importe supera la deuda actual.');s.deuda=round(Math.max(0,s.deuda-r.monto));r.cliente=s.cliente;r.saldo=s.deuda;get('clientes',s.cliente).ultimo_pago=r.fecha;storeRecord('cuotas',r,0);save();lastFee=r.id;mode='receipt';selectedId=String(r.id);render();}
 }
-function updateSale(){const form=document.querySelector('#screen-form'),cid=page==='web'?webClient:Number(form.elements.cliente.value),f=get('funciones',form.elements.funcion.value),quantity=Number(form.elements.cantidad.value)||0,ok=eligible(cid);form.elements.descuento.readOnly=!ok;if(!ok)form.elements.descuento.value=0;const discount=Number(form.elements.descuento.value)||0;form.elements.precio.value=f?.precio||0;form.elements.monto.value=round((f?.precio||0)*quantity*(1-discount/100));if(f)form.elements.cantidad.max=remaining(f.id);document.querySelector('#sale-status').textContent=(f?'Entradas disponibles: '+remaining(f.id)+'. ':'')+(ok?'Socio al día.':'Sin descuento de socio.');}
+function updateSale(){const form=document.querySelector('#screen-form'),cid=!isAdmin()?currentClient():Number(form.elements.cliente.value),f=get('funciones',form.elements.funcion.value),quantity=Number(form.elements.cantidad.value)||0,ok=eligible(cid);form.elements.descuento.readOnly=!ok||!isAdmin();if(!ok||!isAdmin())form.elements.descuento.value=0;const discount=Number(form.elements.descuento.value)||0;form.elements.precio.value=f?.precio||0;form.elements.monto.value=round((f?.precio||0)*quantity*(1-discount/100));if(f)form.elements.cantidad.max=remaining(f.id);document.querySelector('#sale-status').textContent=(f?'Entradas disponibles: '+remaining(f.id)+'. ':'')+(ok?'Socio al día.':'Sin descuento de socio.')+(!isAdmin()?' Los descuentos, cuando correspondan, se aplican desde Administración.':'');}
 function updateFee(){const form=document.querySelector('#screen-form'),s=get('socios',form.elements.socio.value);form.elements.deuda.value=s?.deuda||0;form.elements.saldo.value=round(Math.max(0,(s?.deuda||0)-(Number(form.elements.monto.value)||0)));}
 function debtFields(s){return `<div class="fields">${formField(field('cliente','Cliente','text',{readonly:true}),s?.cliente?name('clientes',s.cliente):'')}${formField(field('fecha','Fecha actual','date',{readonly:true}),TODAY())}${formField(field('deuda','Deuda registrada','number',{readonly:true}),s?.deuda||0)}${formField(field('cuotas','Cuotas adeudadas','number',{min:0,step:1}),0)}${formField(field('importe','Importe por cuota','number',{min:0,step:.01}),0)}${formField(field('calculada','Deuda calculada','number',{readonly:true}),0)}</div>`;}
 function updateDebt(){const f=document.querySelector('#screen-form');f.elements.calculada.value=round(Number(f.elements.cuotas.value)*Number(f.elements.importe.value));}
-function ticketHTML(t){if(!t)return '';const v=get('ventas',t.venta),f=get('funciones',v.funcion);return `<article class="ticket"><h2>CaPaz S.A. · Entrada CP-${String(t.id).padStart(6,'0')}</h2><dl>${[['Fecha de emisión',date(t.emision)],['Evento',eventName(f)],['Fecha de función',date(f.fecha)+' · '+f.hora],['Sala',name('salas',f.sala)],['Cliente',name('clientes',v.cliente)],['Importe',money(round(v.precio*(1-v.descuento/100)))],['Estado',v.estado==='Anulada'||f.estado==='Cancelada'?'Anulado':v.estado]].map(([k,value])=>`<dt>${k}</dt><dd>${esc(value)}</dd>`).join('')}</dl><small>Ticket de demostración.</small></article>`;}
-function saleTickets(id,delivery=false){const v=get('ventas',id),correo=v.correo_tickets||get('clientes',v.cliente).correo;return (delivery?`<p class="ticket-info">${v.envio_tickets==='Simulado'?'Envío automático de tickets simulado a':'Correo del cliente'}: <strong>${esc(correo)}</strong></p>`:'')+data.tickets.filter(t=>t.venta===id).map(ticketHTML).join('');}
-function feeHTML(q){return `<article class="ticket"><h2>CaPaz S.A. · Cuota social CS-${String(q.id).padStart(6,'0')}</h2><dl>${[['Socio',name('clientes',q.cliente)],['Fecha de emisión',date(q.fecha)],['Importe pagado',money(q.monto)],['Saldo restante',money(q.saldo)]].map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl><small>Ticket de demostración.</small></article>`;}
+function ticketHTML(t){if(!t||!scopedRecord('tickets',t.id))return ''; const v=get('ventas',t.venta),f=get('funciones',v.funcion),state=v.estado==='Anulada'||f?.estado==='Cancelada'?'Anulado':v.estado==='Reservada'?'Reserva pendiente de pago':v.estado;return `<article class="ticket"><h2>CaPaz S.A. · Entrada CP-${String(t.id).padStart(6,'0')}</h2><dl>${[['Fecha de emisión',date(t.emision)],['Evento',eventName(f)],['Fecha de función',date(f?.fecha)+' · '+(f?.hora||'')],['Sala',f?name('salas',f.sala):'No disponible'],['Cliente',name('clientes',v.cliente)],['Importe',money(round(v.precio*(1-v.descuento/100)))],['Estado',state]].map(([k,value])=>`<dt>${k}</dt><dd>${esc(value)}</dd>`).join('')}</dl><small>${v.estado==='Reservada'?'Reserva pendiente de pago. La compra todavía no está confirmada.':'Ticket de demostración.'}</small></article>`;}
+function saleTickets(id,delivery=false){const v=scopedRecord('ventas',id);if(!v)return '';const correo=v.correo_tickets||get('clientes',v.cliente).correo;return (delivery?`<p class="ticket-info">${v.envio_tickets==='Simulado'?'Envío automático de tickets simulado a':'Correo del cliente'}: <strong>${esc(correo)}</strong></p>`:'')+data.tickets.filter(t=>t.venta===id).map(ticketHTML).join('');}
+function feeHTML(q){if(!q||!scopedRecord('cuotas',q.id))return '';return `<article class="ticket"><h2>CaPaz S.A. · Cuota social CS-${String(q.id).padStart(6,'0')}</h2><dl>${[['Socio',name('clientes',q.cliente)],['Fecha de emisión',date(q.fecha)],['Importe pagado',money(q.monto)],['Saldo restante',money(q.saldo)]].map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}</dl><small>Ticket de demostración.</small></article>`;}
 const reports={ventas:{title:'Ventas por función',period:'Diario',desc:'Cantidad de entradas y recaudación por función.'},proximas:{title:'Obras aún no efectuadas',period:'Semanal',desc:'Obras con funciones pendientes en el período.'},culminadas:{title:'Obras culminadas',period:'Semanal',desc:'Obras cuyas funciones quedaron finalizadas.'},tickets:{title:'Tickets vendidos',period:'Diario',desc:'Tickets emitidos de ventas confirmadas.'},socios:{title:'Socios adheridos',period:'Semanal',desc:'Nuevas adhesiones registradas en el período.'},cuotas:{title:'Pagos de cuotas sociales',period:'Diario',desc:'Importes de cuotas asentados por socio.'}};
 function inPeriod(d){const day=localDay(d);return day>=reportStart&&day<=reportEnd;}
-function reportData(){let headers,rows,total=0,count=0;if(activeReport==='ventas'){headers=['Función','Evento','Fecha de función','Entradas vendidas','Recaudación'];rows=data.funciones.map(f=>{const vs=paidSales().filter(v=>v.funcion===f.id&&inPeriod(v.fecha));if(!vs.length)return null;const n=vs.reduce((s,v)=>s+v.cantidad,0),sum=round(vs.reduce((s,v)=>s+v.monto,0));count+=n;total+=sum;return ['F-'+f.id,eventName(f),date(f.fecha),n,money(sum)];}).filter(Boolean);}else if(activeReport==='proximas'){headers=['Evento','Funciones pendientes','Próxima función','Sala','Estado'];rows=data.eventos.map(ev=>{const fs=data.funciones.filter(f=>f.evento===ev.id&&['Programada','Reprogramada'].includes(f.estado)&&isFuture(f)&&inPeriod(f.fecha)).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));if(!fs.length)return null;return [ev.nombre,fs.length,`${date(fs[0].fecha)} ${fs[0].hora}`,name('salas',fs[0].sala),fs[0].estado];}).filter(Boolean);count=rows.length;}else if(activeReport==='culminadas'){headers=['Evento','Funciones finalizadas','Última función','Última sala'];rows=data.eventos.map(ev=>{const fs=data.funciones.filter(f=>f.evento===ev.id);if(!fs.length||fs.some(f=>['Programada','Reprogramada'].includes(f.estado)))return null;const ended=fs.filter(f=>f.estado==='Finalizada').sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));if(!ended.length||!inPeriod(ended[0].fecha))return null;return [ev.nombre,ended.length,date(ended[0].fecha),name('salas',ended[0].sala)];}).filter(Boolean);count=rows.length;}else if(activeReport==='tickets'){headers=['ID_ticket','Fecha de emisión','Venta','Cliente','Evento','Canal'];rows=data.tickets.filter(t=>get('ventas',t.venta)?.estado==='Confirmada'&&inPeriod(t.emision)).map(t=>{const v=get('ventas',t.venta);return ['CP-'+String(t.id).padStart(6,'0'),date(t.emision),'V-'+v.id,name('clientes',v.cliente),eventName(get('funciones',v.funcion)),v.canal];});count=rows.length;}else if(activeReport==='socios'){headers=['ID_alta','Socio','Documento','Emisión','Vencimiento','Estado'];rows=data.socios.filter(s=>inPeriod(s.emision)).map(s=>['A-'+s.id,name('clientes',s.cliente),get('clientes',s.cliente).documento,date(s.emision),date(s.vencimiento),s.estado]);count=rows.length;}else{headers=['Ticket de cuota','Socio','Fecha','Concepto','Importe','Medio'];rows=data.cuotas.filter(q=>inPeriod(q.fecha)).map(q=>{total+=q.monto;return ['CS-'+String(q.id).padStart(6,'0'),name('clientes',q.cliente),date(q.fecha),q.concepto,money(q.monto),q.medio];});count=rows.length;}return {headers,rows,total:round(total),count};}
+function reportData(){let headers,rows,total=0,count=0;if(activeReport==='ventas'){headers=['Función','Evento','Fecha de función','Entradas vendidas','Recaudación'];rows=data.funciones.map(f=>{const vs=paidSales().filter(v=>v.funcion===f.id&&inPeriod(v.fecha_pago||v.fecha));if(!vs.length)return null;const n=vs.reduce((s,v)=>s+v.cantidad,0),sum=round(vs.reduce((s,v)=>s+v.monto,0));count+=n;total+=sum;return ['F-'+f.id,eventName(f),date(f.fecha),n,money(sum)];}).filter(Boolean);}else if(activeReport==='proximas'){headers=['Evento','Funciones pendientes','Próxima función','Sala','Estado'];rows=data.eventos.map(ev=>{const fs=data.funciones.filter(f=>f.evento===ev.id&&['Programada','Reprogramada'].includes(f.estado)&&isFuture(f)&&inPeriod(f.fecha)).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));if(!fs.length)return null;return [ev.nombre,fs.length,`${date(fs[0].fecha)} ${fs[0].hora}`,name('salas',fs[0].sala),fs[0].estado];}).filter(Boolean);count=rows.length;}else if(activeReport==='culminadas'){headers=['Evento','Funciones finalizadas','Última función','Última sala'];rows=data.eventos.map(ev=>{const fs=data.funciones.filter(f=>f.evento===ev.id);if(!fs.length||fs.some(f=>['Programada','Reprogramada'].includes(f.estado)))return null;const ended=fs.filter(f=>f.estado==='Finalizada').sort((a,b)=>(b.fecha+b.hora).localeCompare(a.fecha+a.hora));if(!ended.length||!inPeriod(ended[0].fecha))return null;return [ev.nombre,ended.length,date(ended[0].fecha),name('salas',ended[0].sala)];}).filter(Boolean);count=rows.length;}else if(activeReport==='tickets'){headers=['ID_ticket','Fecha de emisión','Venta','Cliente','Evento','Canal'];rows=data.tickets.filter(t=>get('ventas',t.venta)?.estado==='Confirmada'&&inPeriod(t.emision)).map(t=>{const v=get('ventas',t.venta);return ['CP-'+String(t.id).padStart(6,'0'),date(t.emision),'V-'+v.id,name('clientes',v.cliente),eventName(get('funciones',v.funcion)),v.canal];});count=rows.length;}else if(activeReport==='socios'){headers=['ID_alta','Socio','Documento','Emisión','Vencimiento','Estado'];rows=data.socios.filter(s=>inPeriod(s.emision)).map(s=>['A-'+s.id,name('clientes',s.cliente),get('clientes',s.cliente).documento,date(s.emision),date(s.vencimiento),s.estado]);count=rows.length;}else{headers=['Ticket de cuota','Socio','Fecha','Concepto','Importe','Medio'];rows=data.cuotas.filter(q=>inPeriod(q.fecha)).map(q=>{total+=q.monto;return ['CS-'+String(q.id).padStart(6,'0'),name('clientes',q.cliente),date(q.fecha),q.concepto,money(q.monto),q.medio];});count=rows.length;}return {headers,rows,total:round(total),count};}
 function reportFields(){return `<div class="fields"><label class="field"><span>Tipo de informe</span><select name="informe" id="field-informe">${Object.entries(reports).map(([key,r])=>`<option value="${key}" ${activeReport===key?'selected':''}>${r.title} (${r.period.toLowerCase()})</option>`).join('')}</select></label>${formField(field('desde','Fecha desde','date'),reportStart)}${formField(field('hasta','Fecha hasta','date'),reportEnd)}</div><div class="result" id="report-result"></div>`;}
 function reportHTML(){const r=reportData();return `<h2>${reports[activeReport].title}</h2><div class="table-wrap"><table><thead><tr>${r.headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${r.rows.length?r.rows.map(row=>`<tr>${row.map(v=>`<td>${esc(v)}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${r.headers.length}">No hay registros en el período.</td></tr>`}</tbody></table></div>${['ventas','cuotas'].includes(activeReport)?`<p class="helper">Total: ${money(r.total)}</p>`:''}`;}
+document.querySelector('#logout').onclick=closeAccessSession;
 selector.onchange=()=>location.hash=selector.value;
 window.addEventListener('hashchange',()=>render(true));
-render(true);
+
+function actorRoleName(value){return /\b(actor|actriz|actores|actrices|intérprete|interprete)\b/i.test(value);}
+function isActor(person){return actorRoleName(get('roles',person.rol)?.nombre||'');}
+function isTheatre(type){return /teatro|teatral/i.test(get('tipos',type)?.nombre||'');}
+function migrateCast(){
+ let changed=false;
+ if(!data.castVersion){
+   let role=data.roles.find(r=>actorRoleName(r.nombre));
+   if(!role){role={id:nextId('roles'),nombre:'Actor / Actriz',apellido:'',descripcion:'Integrante del elenco de una obra de teatro'};data.roles.push(role);}
+   let actors=data.rrhh.filter(isActor);
+   if(!actors.length){
+     for(const person of [{nombre:'Sofía',apellido:'García',dni:'36111222'},{nombre:'Tomás',apellido:'Medina',dni:'37333444'},{nombre:'Julia',apellido:'Ríos',dni:'38555666'}]){
+       if(data.rrhh.some(p=>p.dni===person.dni))continue;
+       data.rrhh.push({...person,id:nextId('rrhh'),rol:role.id,descripcion:'Elenco de demostración',fecha:TODAY(),nacimiento:'1992-05-15'});
+     }
+     actors=data.rrhh.filter(isActor);
+   }
+   for(const ev of data.eventos)if(!Array.isArray(ev.actores))ev.actores=isTheatre(ev.tipo)?actors.slice(0,2).map(p=>p.id):[];
+   data.castVersion=1;changed=true;
+ }
+ for(const ev of data.eventos)if(!Array.isArray(ev.actores)){ev.actores=[];changed=true;}
+ if(changed)save();
+}
+function createOwnReservation(functionId,quantity){
+ if(!session||isAdmin()||!currentClient())return {error:'Iniciá sesión como usuario para reservar entradas.'};
+ const f=get('funciones',functionId),client=get('clientes',currentClient());
+ if(!f||!bookable().some(item=>item.id===f.id))return {error:'La función ya no está disponible.'};
+ if(!Number.isInteger(quantity)||quantity<1||quantity>remaining(f.id))return {error:'Revisá la cantidad y los lugares disponibles.'};
+ const minimumAge=get('generos',get('eventos',f.evento).genero)?.edad_minima||0;
+ if(age(client.nacimiento)<minimumAge)return {error:'No cumplís la edad mínima para esta función.'};
+ const sale={id:nextId('ventas'),cliente:client.id,funcion:f.id,fecha:TODAY(),emision:now(),cantidad:quantity,precio:f.precio,descuento:0,monto:round(f.precio*quantity),canal:'Web',estado:'Reservada',correo_tickets:client.correo};
+ data.ventas.push(sale);
+ for(let i=0;i<quantity;i++)data.tickets.push({id:nextId('tickets'),venta:sale.id,emision:now()});
+ save();lastSale=sale.id;return {sale};
+}
+function cancellationError(sale){
+ if(!session||isAdmin()||!sale||sale.cliente!==currentClient())return 'No podés cancelar esta reserva.';
+ if(sale.estado!=='Reservada')return 'Solo se pueden cancelar reservas pendientes de pago.';
+ const f=get('funciones',sale.funcion);
+ if(!f||!isFuture(f)||f.estado==='Finalizada')return 'La función ya comenzó o finalizó. No se puede cancelar la reserva.';
+ return '';
+}
+function cancelOwnReservation(id){return cancelOwnReservations([id]);}
+function reservationGroupKey(sale){
+ const f=get('funciones',sale.funcion);
+ return f?JSON.stringify([f.evento,f.fecha,f.hora,f.sala]):JSON.stringify(['sin-funcion',sale.funcion]);
+}
+function ownReservationGroups(){
+ const grouped=new Map();
+ for(const sale of data.ventas.filter(v=>v.cliente===currentClient())){
+   const key=reservationGroupKey(sale);
+   if(!grouped.has(key))grouped.set(key,{key,funcion:get('funciones',sale.funcion),sales:[]});
+   grouped.get(key).sales.push(sale);
+ }
+ return [...grouped.values()].map(group=>{
+   group.pending=group.sales.filter(v=>v.estado==='Reservada');
+   group.paid=group.sales.filter(v=>v.estado==='Confirmada');
+   group.cancelled=group.sales.filter(v=>v.estado==='Anulada');
+   group.pendingQuantity=group.pending.reduce((sum,v)=>sum+Number(v.cantidad),0);
+   group.paidQuantity=group.paid.reduce((sum,v)=>sum+Number(v.cantidad),0);
+   group.cancelledQuantity=group.cancelled.reduce((sum,v)=>sum+Number(v.cantidad),0);
+   group.pendingAmount=round(group.pending.reduce((sum,v)=>sum+Number(v.monto),0));
+   group.paidAmount=round(group.paid.reduce((sum,v)=>sum+Number(v.monto),0));
+   group.latest=group.sales.reduce((last,v)=>String(v.emision||v.fecha)>last?String(v.emision||v.fecha):last,'');
+   return group;
+ }).sort((a,b)=>{
+   const rank=g=>g.pending.length&&isFuture(g.funcion||{})?0:g.paid.length?1:2;
+   return rank(a)-rank(b)||b.latest.localeCompare(a.latest);
+ });
+}
+function groupStatus(group){
+ if(group.funcion?.estado==='Cancelada')return {text:'Función cancelada',style:'cancelled'};
+ if(group.pending.length){
+   if(!group.funcion||!isFuture(group.funcion))return {text:'Función pasada',style:'past'};
+   return {text:group.paidQuantity?group.paidQuantity+' pagadas · '+group.pendingQuantity+' pendientes':'Pendiente de pago',style:'pending'};
+ }
+ return group.paid.length?{text:'Pagadas',style:'confirmed'}:{text:'Canceladas',style:'cancelled'};
+}
+function ownPendingSales(ids,expectedKey){
+ if(!session||isAdmin()||!currentClient())return {error:'Iniciá sesión como usuario para realizar esta operación.'};
+ if(!Array.isArray(ids)||!ids.length)return {error:'No hay reservas pendientes seleccionadas.'};
+ const unique=[...new Set(ids.map(Number))],sales=unique.map(id=>get('ventas',id));
+ if(sales.some(v=>!v||v.cliente!==currentClient()))return {error:'Solo podés gestionar tus propias reservas.'};
+ if(sales.some(v=>v.estado!=='Reservada'))return {error:'Alguna reserva ya no está pendiente. Cerrá esta ventana y revisá Mis reservas.'};
+ const key=reservationGroupKey(sales[0]);
+ if(sales.some(v=>reservationGroupKey(v)!==key)||expectedKey!==undefined&&expectedKey!==key)return {error:'La función cambió. Cerrá esta ventana y revisá Mis reservas.'};
+ return {sales};
+}
+function cancelOwnReservations(ids,expectedKey){
+ const selected=ownPendingSales(ids,expectedKey);
+ if(selected.error)return selected;
+ for(const sale of selected.sales){const problem=cancellationError(sale);if(problem)return {error:problem};}
+ const cancelledAt=now();
+ for(const sale of selected.sales){sale.estado='Anulada';sale.cancelacion=cancelledAt;}
+ save();return {sales:selected.sales,sale:selected.sales[0]};
+}
+const PAYMENT_METHODS=['Tarjeta','Transferencia'];
+function paymentError(sale){
+ if(!session||isAdmin()||!sale||sale.cliente!==currentClient())return 'Solo podés pagar tus propias reservas.';
+ if(sale.estado!=='Reservada')return 'La reserva ya no está pendiente de pago.';
+ const f=get('funciones',sale.funcion);
+ if(!f||!['Programada','Reprogramada'].includes(f.estado)||!isFuture(f)||get('salas',f.sala)?.estado!=='Disponible')return 'La función ya no está disponible para realizar el pago.';
+ // Los lugares ya están reservados: pagar no vuelve a consumir cupo.
+ const held=holdingSales().filter(v=>v.funcion===f.id).reduce((sum,v)=>sum+Number(v.cantidad),0);
+ if(held>Number(get('salas',f.sala).capacidad))return 'La capacidad de la sala cambió. Consultá a Administración antes de pagar.';
+ if(!Number.isFinite(Number(sale.monto))||Number(sale.monto)<0)return 'No se pudo validar el importe de la reserva.';
+ return '';
+}
+function payOwnReservations(ids,method,expected={}){
+ if(!PAYMENT_METHODS.includes(method))return {error:'Seleccioná un medio de pago válido.'};
+ const selected=ownPendingSales(ids,expected.key);
+ if(selected.error)return selected;
+ for(const sale of selected.sales){const problem=paymentError(sale);if(problem)return {error:problem};}
+ const total=round(selected.sales.reduce((sum,v)=>sum+Number(v.monto),0));
+ if(expected.total!==undefined&&total!==expected.total)return {error:'El importe pendiente cambió. Cerrá esta ventana y revisá el resumen.'};
+ const payment={referencia:'DEMO-'+crypto.randomUUID().slice(0,8).toUpperCase(),medio:method,fecha:now(),simulado:true};
+ for(const sale of selected.sales){
+   sale.estado='Confirmada';sale.fecha_pago=payment.fecha;
+   sale.pago={...payment,importe:Number(sale.monto)};
+ }
+ save();return {sales:selected.sales,payment,total};
+}
+
+function renderReservations(){
+ const groups=ownReservationGroups();
+ const quantityLabel=(quantity,singular,plural)=>quantity+' '+(quantity===1?singular:plural);
+ document.querySelector('#main').innerHTML=`<section class='window'><h1 class='window-title'>Mis reservas</h1><div class='menu'>
+   <p class='helper reservations-intro'>Cada función reúne todas tus entradas. Desde acá podés pagar o cancelar las pendientes de pago.</p>
+   <div id='reservations-error' class='form-error hidden' role='alert' aria-live='polite'></div>
+   ${groups.length?'<div class=reservations-list>'+groups.map(group=>{
+     const f=group.funcion,status=groupStatus(group);
+     const saleIds=new Set(group.sales.map(v=>v.id));
+     const tickets=data.tickets.filter(t=>saleIds.has(t.venta));
+     const activeTickets=tickets.filter(t=>['Reservada','Confirmada'].includes(get('ventas',t.venta).estado));
+     const cancelledTickets=tickets.filter(t=>get('ventas',t.venta).estado==='Anulada');
+     const canCancel=group.pending.length&&!group.pending.some(v=>cancellationError(v));
+     const paymentProblem=group.pending.map(paymentError).find(Boolean);
+     const canPay=group.pending.length&&!paymentProblem;
+     const latestPayment=group.paid.map(v=>v.pago).filter(Boolean).sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha)))[0];
+     return `<article class='reservation-card ${status.style}' data-reservation-group='${esc(group.key)}' data-function='${f?.id||''}'>
+       <div class='reservation-heading'><h2>${esc(eventName(f))}</h2><span class='reservation-status ${status.style}'>${status.text}</span></div>
+       <dl class='reservation-summary'><div><dt>Fecha y hora</dt><dd>${esc(date(f?.fecha))} · ${esc(f?.hora||'')}</dd></div><div><dt>Sala</dt><dd>${esc(f?name('salas',f.sala):'No disponible')}</dd></div><div><dt>Entradas vigentes</dt><dd>${group.pendingQuantity+group.paidQuantity}</dd></div><div><dt>Importe pendiente</dt><dd>${money(group.pendingAmount)}</dd></div></dl>
+       <div class='reservation-breakdown'>
+         ${group.paidQuantity?`<span class='breakdown-paid'>${quantityLabel(group.paidQuantity,'pagada','pagadas')} · ${money(group.paidAmount)}</span>`:''}
+         ${group.pendingQuantity?`<span class='breakdown-pending'>${quantityLabel(group.pendingQuantity,'pendiente','pendientes')} · ${money(group.pendingAmount)}</span>`:''}
+         ${group.cancelledQuantity?`<span class='breakdown-cancelled'>${quantityLabel(group.cancelledQuantity,'cancelada','canceladas')}</span>`:''}
+       </div>
+       ${activeTickets.length?`<details class='reservation-tickets'><summary>Ver entradas (${activeTickets.length})</summary><div class='reserved-tickets'>${activeTickets.map(ticketHTML).join('')}</div></details>`:''}
+       <div class='reservation-actions'>
+         ${canPay?`<button type='button' class='inline-button pay-reservation' data-pay-group='${esc(group.key)}'>Pagar pendientes</button>`:''}
+         ${canCancel?`<button type='button' class='inline-button cancel-reservation' data-cancel-group='${esc(group.key)}'>Cancelar pendientes</button>`:''}
+       </div>
+       ${group.pending.length&&paymentProblem?`<p class='helper'>${esc(paymentProblem)}</p>`:''}
+       ${latestPayment?`<p class='helper payment-receipt'>Último pago simulado: ${esc(date(latestPayment.fecha))} · ${esc(latestPayment.medio)}.</p>`:''}
+       ${group.paid.length?'<p class=helper>Para consultar la cancelación de entradas pagadas, contactá a Administración.</p>':''}
+       ${cancelledTickets.length?`<details class='reservation-tickets cancelled-tickets'><summary>Ver entradas canceladas (${cancelledTickets.length})</summary><div class='reserved-tickets'>${cancelledTickets.map(ticketHTML).join('')}</div></details>`:''}
+     </article>`;
+   }).join('')+'</div>':'<div class=empty-reservations><h2>Todavía no tenés reservas</h2><p>Elegí una función en la cartelera para reservar tus entradas.</p><a class=inline-button href=#cartelera>Ir a la cartelera</a></div>'}
+   </div></section>
+   <dialog id='cancel-reservation-dialog' class='reservation-dialog' aria-labelledby='cancel-reservation-title'>
+     <h2 id='cancel-reservation-title'>¿Cancelar las entradas pendientes?</h2><p id='cancel-reservation-description'></p>
+     <p>Se anularán solo las entradas pendientes de pago y se liberarán sus lugares. Las entradas pagadas se conservan.</p>
+     <div id='cancel-reservation-error' class='form-error hidden' role='alert'></div>
+     <div class='reservation-dialog-actions'><button type='button' class='inline-button' id='keep-reservation'>Volver</button><button type='button' class='inline-button cancel-reservation' id='confirm-reservation-cancel'>Sí, cancelar pendientes</button></div>
+   </dialog>
+   <dialog id='payment-dialog' class='reservation-dialog payment-dialog' aria-labelledby='payment-title'>
+     <h2 id='payment-title'>Pagar entradas pendientes</h2>
+     <p id='payment-description'></p>
+     <p class='payment-total'>Total a pagar: <strong id='payment-total'></strong></p>
+     <form id='payment-form' novalidate>
+       <label class='field' for='payment-method'><span>Medio de pago</span><select id='payment-method' name='medio' required><option value=''>Seleccionar</option>${PAYMENT_METHODS.map(method=>`<option value='${method}'>${method}</option>`).join('')}</select></label>
+       <p class='helper payment-demo-note'>Pago de demostración: no se solicitan datos bancarios ni se realiza un cobro real.</p>
+       <div id='payment-error' class='form-error hidden' role='alert' aria-live='polite'></div>
+       <div class='reservation-dialog-actions'><button type='button' class='inline-button' id='back-from-payment'>Volver</button><button type='submit' class='inline-button pay-reservation' id='confirm-payment'>Confirmar pago simulado</button></div>
+     </form>
+   </dialog>`;
+ const groupError=message=>{const el=document.querySelector('#reservations-error');el.textContent=message;el.classList.remove('hidden');};
+ const cancelDialog=document.querySelector('#cancel-reservation-dialog'),payDialog=document.querySelector('#payment-dialog');
+ let pendingCancellation=null,pendingPayment=null;
+ document.querySelectorAll('[data-cancel-group]').forEach(button=>button.onclick=()=>{
+   const group=ownReservationGroups().find(g=>g.key===button.dataset.cancelGroup);
+   if(!group||!group.pending.length)return groupError('No hay entradas pendientes para cancelar.');
+   const problem=group.pending.map(cancellationError).find(Boolean);
+   if(problem)return groupError(problem);
+   pendingCancellation={ids:group.pending.map(v=>v.id),key:group.key};
+   const f=group.funcion;
+   document.querySelector('#cancel-reservation-description').textContent=`${eventName(f)} · ${date(f.fecha)} ${f.hora} · ${quantityLabel(group.pendingQuantity,'entrada pendiente','entradas pendientes')}.`;
+   document.querySelector('#cancel-reservation-error').classList.add('hidden');cancelDialog.showModal();
+ });
+ document.querySelector('#keep-reservation').onclick=()=>{pendingCancellation=null;cancelDialog.close();};
+ document.querySelector('#confirm-reservation-cancel').onclick=()=>{
+   const result=cancelOwnReservations(pendingCancellation?.ids,pendingCancellation?.key);
+   if(result.error){const el=document.querySelector('#cancel-reservation-error');el.textContent=result.error;el.classList.remove('hidden');return;}
+   cancelDialog.close();renderReservations();toast('Se cancelaron las entradas pendientes y se liberaron sus lugares.');
+ };
+ document.querySelectorAll('[data-pay-group]').forEach(button=>button.onclick=()=>{
+   const group=ownReservationGroups().find(g=>g.key===button.dataset.payGroup);
+   if(!group||!group.pending.length)return groupError('No hay entradas pendientes de pago.');
+   const problem=group.pending.map(paymentError).find(Boolean);
+   if(problem)return groupError(problem);
+   pendingPayment={ids:group.pending.map(v=>v.id),key:group.key,total:group.pendingAmount};
+   const f=group.funcion;
+   document.querySelector('#payment-description').textContent=`${eventName(f)} · ${date(f.fecha)} ${f.hora} · ${quantityLabel(group.pendingQuantity,'entrada pendiente','entradas pendientes')}.`;
+   document.querySelector('#payment-total').textContent=money(group.pendingAmount);
+   document.querySelector('#payment-form').reset();document.querySelector('#payment-method').removeAttribute('aria-invalid');document.querySelector('#payment-error').classList.add('hidden');
+   payDialog.showModal();
+ });
+ document.querySelector('#back-from-payment').onclick=()=>{pendingPayment=null;payDialog.close();};
+ const form=document.querySelector('#payment-form');
+ form.elements.medio.onchange=()=>{form.elements.medio.removeAttribute('aria-invalid');document.querySelector('#payment-error').classList.add('hidden');};
+ form.onsubmit=e=>{
+   e.preventDefault();
+   const paymentMessage=message=>{const el=document.querySelector('#payment-error');el.textContent=message;el.classList.remove('hidden');};
+   document.querySelector('#payment-error').classList.add('hidden');
+   if(!validateForm(form,paymentMessage))return;
+   const result=payOwnReservations(pendingPayment?.ids,new FormData(form).get('medio'),pendingPayment||{});
+   if(result.error)return paymentMessage(result.error);
+   payDialog.close();renderReservations();toast('Pago simulado confirmado. Tus entradas ya figuran como pagadas.');
+ };
+}
+
+function bookingFormHTML(f){
+ return `<form class="inline-booking" id="reservation-booking" novalidate>
+   <label class="field" for="reservation-quantity"><span>Cantidad de entradas</span><input id="reservation-quantity" name="cantidad" type="number" min="1" max="${remaining(f.id)}" step="1" value="1" required></label>
+   <p class="booking-total">Total de la reserva: <output id="reservation-total">${money(f.precio)}</output></p>
+   <p class="helper">La reserva quedará pendiente de pago. Podés pagarla o cancelarla desde Mis reservas.</p>
+   <div id="booking-error" class="form-error hidden" role="alert" aria-live="polite"></div>
+   <div class="booking-actions"><button class="inline-button buy-button" type="submit">Confirmar reserva</button><button class="text-button" id="close-booking" type="button">Volver a la cartelera</button></div>
+ </form>`;
+}
+function renderBillboard(){
+ const upcoming=data.funciones.filter(f=>['Programada','Reprogramada'].includes(f.estado)&&isFuture(f)&&get('salas',f.sala)?.estado==='Disponible').sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+ document.querySelector('#main').innerHTML=`<section class="window"><h1 class="window-title">Cartelera · Próximas funciones</h1><div class="menu"><p class="helper billboard-intro">${isAdmin()?'Consultá las funciones y registrá una venta para el cliente.':'Elegí una función y reservá tus entradas desde acá.'}</p><div class="billboard-grid">${upcoming.map(f=>{
+   const ev=get('eventos',f.evento),cast=(ev.actores||[]).map(id=>name('rrhh',id));
+   return `<article class="billboard-card"><span class="category">${esc(name('tipos',ev.tipo))}</span><h2>${esc(ev.nombre)}</h2><p>${esc(date(f.fecha))} · ${esc(f.hora)}<br>${esc(name('salas',f.sala))}</p>${isTheatre(ev.tipo)?`<p class="cast-names"><strong>Elenco</strong><br>${cast.length?cast.map(esc).join(' · '):'A confirmar'}</p>`:''}<p class="billboard-price">${money(f.precio)} <small>por entrada</small></p>${!isAdmin()&&String(f.id)===preferredFunction&&remaining(f.id)>0?bookingFormHTML(f):`<button type="button" class="inline-button buy-button" data-book="${f.id}" ${remaining(f.id)===0?'disabled':''}>${remaining(f.id)===0?'Agotada':isAdmin()?'Comprar entradas':'Reservar entradas'}</button>`}<small>${remaining(f.id)} lugares disponibles</small></article>`;
+ }).join('')||'<p>No hay funciones disponibles por el momento.</p>'}</div></div></section>`;
+ document.querySelectorAll('[data-book]').forEach(el=>el.onclick=()=>{
+   preferredFunction=el.dataset.book;
+   if(isAdmin()){location.hash='web';return;}
+   renderBillboard();document.querySelector('#reservation-quantity')?.focus();
+ });
+ const form=document.querySelector('#reservation-booking');
+ if(form){
+   const functionId=Number(preferredFunction),quantity=form.elements.cantidad;
+   const bookingError=message=>{const el=document.querySelector('#booking-error');el.textContent=message;el.classList.remove('hidden');};
+   quantity.oninput=()=>{document.querySelector('#reservation-total').textContent=money((get('funciones',functionId)?.precio||0)*(Number(quantity.value)||0));};
+   document.querySelector('#close-booking').onclick=()=>{preferredFunction='';renderBillboard();document.querySelector(`[data-book="${functionId}"]`)?.focus();};
+   form.onsubmit=e=>{
+     e.preventDefault();document.querySelector('#booking-error').classList.add('hidden');
+     if(!validateForm(form,bookingError))return;
+     const result=createOwnReservation(functionId,Number(quantity.value));
+     if(result.error){bookingError(result.error);return;}
+     preferredFunction='';location.hash='reservas';toast('Reserva realizada. Tus entradas están en Mis reservas.');
+   };
+ }
+}
+initialize().catch(()=>{showAccessLogin('No se pudieron preparar los datos. Abrí la página con Edge o Chrome.');});
