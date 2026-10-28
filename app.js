@@ -85,7 +85,7 @@ const ACCESS_USER = 'admin';
 const ACCESS_PASSWORD = 'capaz123';
 const USER_MENU = [['cartelera','Cartelera'],['reservas','Mis reservas'],['misocio','Mi membresía'],['perfil','Mi perfil']];
 const selector = document.querySelector('#pantalla');
-let session = null, accessRole = 'usuario', accessMode = 'login', preferredFunction = '';
+let session = null, accessMode = 'login', preferredFunction = '';
 const normalized = value => String(value ?? '').trim().toLowerCase();
 const documentKey = value => String(value ?? '').replace(/[.\s-]/g,'').toUpperCase();
 const isAdmin = () => session?.role === 'admin';
@@ -136,7 +136,7 @@ function showAccessLogin(message='') {
   document.querySelector('.navigation').hidden=true;
   document.title=(accessMode==='register'?'Crear cuenta':'Iniciar sesión')+' · CaPaz';
   const register=accessMode==='register';
-  const loginFields=authField('usuario',accessRole==='admin'?'Usuario':'Usuario o correo','text','autocomplete="username"')+
+  const loginFields=authField('usuario','Usuario o correo','text','autocomplete="username"')+
     authField('clave','Contraseña','password','autocomplete="current-password"');
   const registerFields=authField('usuario','Usuario','text','autocomplete="username" pattern="[A-Za-z0-9._-]{3,30}" maxlength="30"')+
     authField('nombre','Nombre','text','autocomplete="given-name" maxlength="80"')+
@@ -150,19 +150,17 @@ function showAccessLogin(message='') {
     authField('confirmacion','Repetir contraseña','password','autocomplete="new-password" minlength="6" maxlength="128"');
   document.querySelector('#main').innerHTML=`<section class="window access-window ${register?'registration-window':''}">
     <h1 class="window-title">CaPaz S.A. · ${register?'Crear cuenta de usuario':'Iniciar sesión'}</h1>
-    ${register?'':`<div class="access-tabs" aria-label="Tipo de acceso"><button type="button" data-role="usuario" aria-pressed="${accessRole==='usuario'}">Usuario</button><button type="button" data-role="admin" aria-pressed="${accessRole==='admin'}">Administrador</button></div>`}
     <form id="access-form" novalidate><div class="access-content">
-      <p class="access-intro">${register?'Registrate para reservar entradas y consultar tus funciones.':accessRole==='admin'?'Ingresá para administrar eventos, funciones y ventas.':'Ingresá para ver la cartelera, reservar entradas y consultar tus reservas.'}</p>
+      <p class="access-intro">${register?'Registrate para reservar entradas y consultar tus funciones.':'Ingresá con tu usuario o correo electrónico y tu contraseña.'}</p>
       ${storageWarning?'<p class="form-error">El navegador no permite guardar los cambios de forma permanente.</p>':''}
       <div class="fields">${register?registerFields:loginFields}</div>
       ${register?'<p class="helper">La contraseña debe tener al menos 6 caracteres. El registro crea una cuenta de usuario.</p>':''}
       <div id="access-error" class="form-error hidden" role="alert" aria-live="polite"></div>
-      ${register?'<button class="text-button" type="button" id="show-login">Ya tengo cuenta · Iniciar sesión</button>':accessRole==='usuario'?'<p class="access-register">¿Todavía no tenés cuenta? <button class="text-button" type="button" id="show-register">Registrarme</button></p>':''}
+      ${register?'<button class="text-button" type="button" id="show-login">Ya tengo cuenta · Iniciar sesión</button>':'<p class="access-register">¿Todavía no tenés cuenta? <button class="text-button" type="button" id="show-register">Registrarme</button></p>'}
     </div><footer class="screen-footer access-footer"><button class="save" type="submit">${register?'Crear cuenta':'Ingresar'}</button></footer></form>
   </section>`;
-  document.querySelectorAll('.access-tabs button[data-role]').forEach(el=>el.onclick=()=>{accessRole=el.dataset.role;showAccessLogin();});
   const toggle=document.querySelector(register?'#show-login':'#show-register');
-  if(toggle)toggle.onclick=()=>{accessMode=register?'login':'register';accessRole='usuario';showAccessLogin();};
+  if(toggle)toggle.onclick=()=>{accessMode=register?'login':'register';showAccessLogin();};
   if(message)accessMessage(message);
   document.querySelector('#access-form').onsubmit=async e=>{
     e.preventDefault();const form=e.currentTarget;
@@ -208,8 +206,8 @@ async function registerAccount(fd) {
 }
 async function loginAccount(fd) {
   const username=normalized(fd.get('usuario')),password=fd.get('clave');
-  if(accessRole==='admin') {
-    if(username!==ACCESS_USER||password!==ACCESS_PASSWORD)return accessMessage('Usuario o contraseña incorrectos.');
+  if(username===ACCESS_USER) {
+    if(password!==ACCESS_PASSWORD)return accessMessage('Usuario o contraseña incorrectos.');
     session={role:'admin'};
   } else {
     const account=data.cuentas.find(a=>normalized(a.usuario)===username||normalized(get('clientes',a.cliente)?.correo)===username);
@@ -739,4 +737,30 @@ function renderBillboard(){
    };
  }
 }
+function initializeTheme(){
+ const root=document.documentElement,button=document.querySelector('#theme-toggle');
+ const system=window.matchMedia('(prefers-color-scheme: dark)');
+ let preference=null;
+ try{const saved=localStorage.getItem('capaz-tema');if(['light','dark'].includes(saved))preference=saved;}catch{}
+ const apply=theme=>{
+   root.dataset.theme=theme;
+   if(!button)return;
+   const dark=theme==='dark';
+   document.querySelector('#theme-icon').textContent=dark?'☀':'☾';
+   document.querySelector('#theme-label').textContent=dark?'Modo claro':'Modo oscuro';
+   button.setAttribute('aria-label',dark?'Activar modo claro':'Activar modo oscuro');
+ };
+ apply(preference||(system.matches?'dark':'light'));
+ if(button)button.onclick=()=>{
+   preference=root.dataset.theme==='dark'?'light':'dark';apply(preference);
+   try{localStorage.setItem('capaz-tema',preference);}catch{}
+ };
+ system.addEventListener('change',e=>{if(!preference)apply(e.matches?'dark':'light');});
+ window.addEventListener('storage',e=>{
+   if(e.key!=='capaz-tema')return;
+   preference=['light','dark'].includes(e.newValue)?e.newValue:null;
+   apply(preference||(system.matches?'dark':'light'));
+ });
+}
+initializeTheme();
 initialize().catch(()=>{showAccessLogin('No se pudieron preparar los datos. Abrí la página con Edge o Chrome.');});

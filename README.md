@@ -6,9 +6,15 @@ Prototipo navegable con acceso de usuario y administrador, conservando la estruc
 
 1. Copiá `index.html`, `app.js` y `styles.css` a la carpeta del repositorio, reemplazando los archivos anteriores. Conservá los archivos de Git que ya están allí.
 2. Abrí `index.html` con Edge o Chrome. También funciona como página estática en GitHub Pages.
-3. Elegí la pestaña **Usuario** o **Administrador** al ingresar.
+3. Ingresá tu usuario o correo electrónico y tu contraseña en el acceso general. El sistema reconoce el tipo de cuenta y muestra su menú correspondiente.
 
 `index.html` incluye todo el CSS y JavaScript: también podés reemplazar solamente ese archivo para probar la actualización. Los archivos separados se entregan para facilitar la edición. Si editás `app.js` o `styles.css`, ejecutá `python construir.py` para actualizar el HTML antes de subirlo a GitHub Pages.
+
+## Apariencia clara y oscura
+
+El botón **Modo oscuro / Modo claro**, en la parte superior derecha, está disponible en el login, el registro y todas las pantallas de usuario y administrador. La elección se recuerda en ese navegador al recargar y cerrar sesión, sin modificar cuentas, reservas ni pagos.
+
+Si todavía no elegiste un modo, se utiliza la preferencia de apariencia del sistema. La impresión conserva el fondo claro y oculta el botón de apariencia.
 
 ## Cuentas de demostración
 
@@ -19,7 +25,9 @@ Prototipo navegable con acceso de usuario y administrador, conservando la estruc
 | Usuario | `nicolas` o `nicolas@example.com` | `capaz123` |
 | Usuario | `camila` o `camila@example.com` | `capaz123` |
 
-También se puede crear una cuenta desde **Usuario → Registrarme**. La contraseña elegida debe tener al menos 6 caracteres y coincidir con la confirmación. Las cuentas nuevas siempre son de usuario.
+También se puede crear una cuenta desde **Registrarme**, en el acceso general. La contraseña elegida debe tener al menos 6 caracteres y coincidir con la confirmación. Las cuentas nuevas siempre son de usuario; no se puede elegir un rol de administrador desde el registro.
+
+El inicio de sesión es único: no hay pestañas para seleccionar un rol. `admin / capaz123` abre Administración; las credenciales de una cuenta registrada abren el espacio de usuario. Ambos tipos de acceso muestran el mismo mensaje si las credenciales son incorrectas. Al cerrar sesión se vuelve al mismo formulario general.
 
 ## Qué ve cada persona
 

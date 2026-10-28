@@ -18,12 +18,12 @@ body{min-height:100vh;background:linear-gradient(155deg,#f0eef8 0%,#f6f7fb 52%,#
 .menu-links a{border-color:#ddd6ea;border-left:4px solid #9b86c0;border-radius:6px;display:flex;justify-content:space-between;gap:10px;background:#fdfcff;color:#534573}.menu-links a:nth-child(3n+2){border-left-color:#5b9c95}.menu-links a:nth-child(3n){border-left-color:#c78b9c}.menu-links a:hover{background:#eee9f7;border-color:#b5a2d2}.menu-links a span{color:#9c8bb9}
 .session-badge{display:inline-flex;align-items:center;max-width:100%;padding:7px 11px;border-radius:20px;font-size:12px;font-weight:600;color:#5b438e;background:#eee6f8;overflow-wrap:anywhere}.navigation[data-role=usuario] .session-badge{background:#dcefea;color:#24665e}
 #logout{border-radius:6px;border-color:#cfc8df;color:#59457e}#logout:hover{background:#ede6f7}
-.access-window{max-width:550px;margin-top:52px}.registration-window{max-width:690px;margin-top:28px}.access-tabs{display:flex;border-bottom:1px solid var(--line);padding:14px 30px 0;gap:12px;background:#fcfbfe}.access-tabs button{flex:1;border:0;border-bottom:3px solid transparent;background:transparent;padding:12px 7px;color:#6b647b;font-size:14px}.access-tabs button[aria-pressed=true]{border-color:#7760b1;color:#59418c;font-weight:bold;background:#f2ecfa;border-radius:5px 5px 0 0}.access-intro{font-size:13px;color:#71677f;line-height:1.6;margin:0 0 24px}.access-content .field{grid-template-columns:150px minmax(0,1fr)}.registration-window .field{grid-template-columns:175px minmax(0,1fr)}.text-button{border:0;background:transparent;color:#6550a1;font-weight:bold;padding:5px 0;font-size:13px;text-decoration:underline;text-underline-offset:3px}.access-register{font-size:13px;margin:23px 0 0;color:#71677f}.registration-window .text-button{margin-top:18px}
+.access-window{max-width:550px;margin-top:52px}.registration-window{max-width:690px;margin-top:28px}.access-intro{font-size:13px;color:#71677f;line-height:1.6;margin:0 0 24px}.access-content .field{grid-template-columns:150px minmax(0,1fr)}.registration-window .field{grid-template-columns:175px minmax(0,1fr)}.text-button{border:0;background:transparent;color:#6550a1;font-weight:bold;padding:5px 0;font-size:13px;text-decoration:underline;text-underline-offset:3px}.access-register{font-size:13px;margin:23px 0 0;color:#71677f}.registration-window .text-button{margin-top:18px}
 .form-error{background:#fff1f2;color:#a12e48;border-color:#efbdc9;border-left:4px solid #c85873;border-radius:5px}.success{background:#e7f4ed;color:#236148;border:1px solid #b9ddc6;border-radius:5px;padding:12px}.helper{color:#6f6a7a}#message{background:#4f3c79;z-index:5}.inline-button{border-radius:5px;background:#ece7f4;border-color:#c8bbdd;color:#59457c}th{background:#eee8f7;color:#59467c}.ticket{border-color:#d6cce7;border-radius:6px;border-top:4px solid #7c67a4}.ticket h2{color:#594184}
 .cast-field{margin:4px 0;padding:18px;border:1px solid #d8cfe7;border-radius:6px;min-width:0;background:#faf8fe}.cast-field legend{font-size:14px;font-weight:bold;color:#665087;padding:0 7px}.cast-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.cast-option{display:flex;align-items:center;gap:9px;font-size:13px;padding:10px;border:1px solid #e0d9ec;border-radius:5px;background:white}.cast-option input{width:17px;height:17px;accent-color:#7760b1;flex-shrink:0}.cast-option:has(input:checked){background:#eee7f7;border-color:#b29acb}.cast-field>small{display:block;font-size:12px;color:#786c87;margin-top:12px}
 .billboard-intro{margin:0 0 23px}.billboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.billboard-card{border:1px solid #d9d0e8;border-top:4px solid #9a7ebc;border-radius:7px;padding:23px;background:#fdfcff;display:flex;flex-direction:column;align-items:flex-start}.billboard-card:nth-child(even){border-top-color:#5e9d94}.billboard-card h2{font-size:19px;margin:15px 0 8px;color:#493667}.billboard-card p{font-size:13px;line-height:1.6;color:#6f647d}.category{color:#68508b;background:#eee6f6;border-radius:20px;padding:4px 9px;font-size:11px;font-weight:bold}.billboard-price{font-size:22px!important;font-weight:bold;color:#51406f!important;margin-top:auto}.billboard-price small{font-size:12px;font-weight:normal;color:#796c88}.billboard-card>small{font-size:11px;color:#7e748b;margin-top:11px}.billboard-card .buy-button{margin-top:0;background:#6550a1;color:white;border:0;padding:11px 15px}.cast-names{padding:12px;background:#f0edf6;border-radius:5px;width:100%}
 @media(max-width:800px){.navigation label{margin-left:0}.session-badge{margin-left:auto}}
-@media(max-width:560px){.navigation{flex-direction:row;align-items:center}.navigation label{order:3;width:100%}.navigation>a{font-size:17px}.session-badge{font-size:11px}#logout{margin-left:auto;align-self:auto}.access-window{margin-top:25px}.access-content .field,.registration-window .field{grid-template-columns:1fr}.access-tabs{padding:10px 16px 0}.cast-options,.billboard-grid{grid-template-columns:1fr}.screen-footer button{font-size:12px}.screen-footer .save{font-size:12px}.billboard-card{padding:19px}}
+@media(max-width:560px){.navigation{flex-direction:row;align-items:center}.navigation label{order:3;width:100%}.navigation>a{font-size:17px}.session-badge{font-size:11px}#logout{margin-left:auto;align-self:auto}.access-window{margin-top:25px}.access-content .field,.registration-window .field{grid-template-columns:1fr}.cast-options,.billboard-grid{grid-template-columns:1fr}.screen-footer button{font-size:12px}.screen-footer .save{font-size:12px}.billboard-card{padding:19px}}
 @media print{body{background:white}.window{box-shadow:none}.window-title{border-top:0}.billboard-card{break-inside:avoid}.buy-button{display:none}.cast-field{background:white}}
 
 /* Recorrido del usuario: reservar desde la cartelera y consultar todas sus reservas. */
@@ -41,3 +41,70 @@ body{min-height:100vh;background:linear-gradient(155deg,#f0eef8 0%,#f6f7fb 52%,#
 @media(max-width:650px){.membership-content{padding:22px 19px}.membership-overview{padding:22px 20px}.membership-overview h2{font-size:22px}.membership-summary{grid-template-columns:1fr;gap:12px;margin-bottom:25px}.membership-summary>div{padding:17px 19px}.membership-summary dt{margin-bottom:7px}.membership-history th,.membership-history td{padding:10px 8px;font-size:12px}}
 @media print{.membership-actions{display:none}.membership-content{padding:20px 0}.membership-overview,.membership-summary>div{break-inside:avoid}}
 @media(max-width:650px){.membership-history table{display:block}.membership-history thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}.membership-history tbody{display:grid;gap:12px}.membership-history tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:18px;border:1px solid #ddd5e8;border-radius:7px;background:#fdfcff}.membership-history td{display:block;border:0;padding:0;font-size:13px}.membership-history td::before{content:attr(data-label);display:block;margin-bottom:7px;color:#7b7088;font-size:11px}.membership-history td:first-child{white-space:nowrap}}
+
+/* Apariencia disponible antes y después del acceso. */
+.appearance-toolbar{max-width:1100px;margin:16px auto -10px;padding:0 16px;display:flex;justify-content:flex-end}.theme-toggle{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:8px 13px;border:1px solid #d0c5e1;border-radius:20px;background:#fff;color:#655083;font-size:12px}.theme-toggle:hover{background:#eee8f7}.theme-toggle:focus-visible{outline:2px solid #8b70b5;outline-offset:3px}#theme-icon{font-size:18px;line-height:1}
+@media screen{
+:root[data-theme=dark]{color-scheme:dark;color:#e9e3f2;background:#15131e;--line:#4c425d;--blue:#c9b0f5;--purple:#c9b0f5;--teal:#92d6be;--pink:#f4aec5}
+:root[data-theme=dark] body{background:linear-gradient(155deg,#1c1729,#15151e 52%,#132326)}
+:root[data-theme=dark] .window{background:#221e2d;border-color:#50455f;box-shadow:0 8px 30px #0003}
+:root[data-theme=dark] .window-title{color:#e9dcff;background:linear-gradient(100deg,#382c50,#253e3b);border-color:#554764;border-top-color:#9d80ce}
+:root[data-theme=dark] .navigation>a,:root[data-theme=dark] a,:root[data-theme=dark] .text-button{color:#d0b9ff}
+:root[data-theme=dark] .field input,:root[data-theme=dark] .field select,:root[data-theme=dark] .field textarea,:root[data-theme=dark] .navigation select{background:#18151f;color:#e9e2f3;border-color:#70617f;box-shadow:none}
+:root[data-theme=dark] .field input:read-only,:root[data-theme=dark] .field input:disabled,:root[data-theme=dark] .field select:disabled,:root[data-theme=dark] .field textarea:read-only{background:#2c2637;color:#beb2ce;border-color:#51465f}
+:root[data-theme=dark] .field input:focus,:root[data-theme=dark] .field select:focus,:root[data-theme=dark] .field textarea:focus{outline-color:#c3a3f3}
+:root[data-theme=dark] .field input[aria-invalid=true],:root[data-theme=dark] .field select[aria-invalid=true]{border-color:#e986a0;outline-color:#e986a0}
+:root[data-theme=dark] .operations{background:#251f31;border-color:#4c425d}
+:root[data-theme=dark] .operation{border-color:#4c425d}
+:root[data-theme=dark] .operation:hover{background:#342941}
+:root[data-theme=dark] .operation.selected{color:#e9d8ff;background:#3a2c51;box-shadow:inset 4px 0 #b28cde}
+:root[data-theme=dark] .operation input,:root[data-theme=dark] .cast-option input{accent-color:#b28cde}
+:root[data-theme=dark] .screen-footer{border-color:#51455f}
+:root[data-theme=dark] .screen-footer button{background:#30283f;color:#dfd0f1;border-color:#51455f}
+:root[data-theme=dark] .screen-footer .save,:root[data-theme=dark] .pay-reservation,:root[data-theme=dark] .billboard-card .buy-button{background:#7153a6;color:#fff;border-color:#9876ca}
+:root[data-theme=dark] .screen-footer #exit{background:#203a34;color:#b6e5d6}
+:root[data-theme=dark] .theme-toggle,:root[data-theme=dark] #logout,:root[data-theme=dark] .inline-button{background:#352b48;color:#e0cef9;border-color:#7a6493}
+:root[data-theme=dark] .theme-toggle:hover,:root[data-theme=dark] #logout:hover,:root[data-theme=dark] .inline-button:hover{background:#45345b}
+:root[data-theme=dark] .menu-links a,:root[data-theme=dark] .billboard-card,:root[data-theme=dark] .reservation-card,:root[data-theme=dark] .empty-reservations,:root[data-theme=dark] .cast-field,:root[data-theme=dark] .ticket,:root[data-theme=dark] .reserved-tickets .ticket,:root[data-theme=dark] .membership-summary>div,:root[data-theme=dark] .membership-history tr{background:#282232;border-color:#574965;color:#e9e3f2}
+:root[data-theme=dark] .menu-links a:hover{background:#392d4c;border-color:#987cba}
+:root[data-theme=dark] .menu-links a span{color:#c2abd9}
+:root[data-theme=dark] .billboard-card h2,:root[data-theme=dark] .ticket h2,:root[data-theme=dark] .reservation-heading h2,:root[data-theme=dark] .empty-reservations h2,:root[data-theme=dark] .membership-history h2,:root[data-theme=dark] .membership-summary dd,:root[data-theme=dark] .cast-field legend{color:#e2cef9}
+:root[data-theme=dark] .billboard-card p,:root[data-theme=dark] .access-intro,:root[data-theme=dark] .access-register,:root[data-theme=dark] .helper,:root[data-theme=dark] .field small,:root[data-theme=dark] .ticket small,:root[data-theme=dark] .ticket dt,:root[data-theme=dark] .billboard-card>small,:root[data-theme=dark] .billboard-price small,:root[data-theme=dark] .cast-field>small,:root[data-theme=dark] .empty-reservations p,:root[data-theme=dark] .reservation-summary dt,:root[data-theme=dark] .membership-summary dt,:root[data-theme=dark] .membership-history td::before{color:#c1b3ce}
+:root[data-theme=dark] .billboard-price,:root[data-theme=dark] .booking-total{color:#e7d7ff!important}
+:root[data-theme=dark] .record-picker,:root[data-theme=dark] .result,:root[data-theme=dark] .inline-booking,:root[data-theme=dark] .reservation-tickets{border-color:#52465e}
+:root[data-theme=dark] .session-badge,:root[data-theme=dark] .category,:root[data-theme=dark] .cast-names{background:#3b2c50;color:#e0c6ff}
+:root[data-theme=dark] .navigation[data-role=usuario] .session-badge{background:#203f35;color:#b2e4cd}
+:root[data-theme=dark] .cast-option{background:#211b2b;border-color:#59496d;color:#e1d5f0}
+:root[data-theme=dark] .cast-option:has(input:checked){background:#413054;border-color:#ae8bc8}
+:root[data-theme=dark] th{background:#362b49;color:#e2cffb}
+:root[data-theme=dark] th,:root[data-theme=dark] td{border-color:#52465e}
+:root[data-theme=dark] .reservation-summary dd{color:#e2d7ee}
+:root[data-theme=dark] .reservation-status.pending,:root[data-theme=dark] .breakdown-pending{background:#49371c;color:#f4d28e}
+:root[data-theme=dark] .reservation-status.confirmed,:root[data-theme=dark] .breakdown-paid{background:#203f32;color:#b2e5c8}
+:root[data-theme=dark] .reservation-status.cancelled,:root[data-theme=dark] .breakdown-cancelled{background:#41303d;color:#dec0d3}
+:root[data-theme=dark] .reservation-status.past{background:#39323f;color:#d0c1db}
+:root[data-theme=dark] .reservation-card.cancelled,:root[data-theme=dark] .cancelled-tickets .ticket{background:#261e2a;border-color:#6c5165}
+:root[data-theme=dark] .reservation-dialog{background:#292231;color:#e8dfef;border-color:#8c729f;box-shadow:0 15px 70px #0008}
+:root[data-theme=dark] .reservation-dialog::backdrop{background:#08060db3}
+:root[data-theme=dark] .reservation-dialog h2{color:#e6cef9}
+:root[data-theme=dark] .payment-total,:root[data-theme=dark] .payment-demo-note{background:#382a4c;color:#e5d2fa}
+:root[data-theme=dark] .form-error{background:#44242e;color:#ffc4d3;border-color:#a25d71}
+:root[data-theme=dark] .success{background:#203e31;color:#b4e6c9;border-color:#528168}
+:root[data-theme=dark] .cancel-reservation{background:#422733;color:#ffc1d4;border-color:#9e607a}
+:root[data-theme=dark] .cancel-reservation:hover{background:#573244}
+:root[data-theme=dark] .pay-reservation{background:#7153a6;color:#fff;border-color:#9876ca}
+:root[data-theme=dark] .pay-reservation:hover{background:#8263b2}
+:root[data-theme=dark] .membership-overview{background:#30263e;border-color:#6d557f}
+:root[data-theme=dark] .membership-overview h2{color:#e0c9f4}
+:root[data-theme=dark] .membership-overview p,:root[data-theme=dark] .membership-overview .membership-since{color:#ccbcd8}
+:root[data-theme=dark] .membership-overview.current{background:#20392f;border-color:#486f5b}
+:root[data-theme=dark] .membership-overview.current h2{color:#b5e7c9}
+:root[data-theme=dark] .membership-overview.attention{background:#3b301f;border-color:#806137}
+:root[data-theme=dark] .membership-overview.attention h2,:root[data-theme=dark] .membership-overview .membership-note,:root[data-theme=dark] .membership-summary .membership-balance-due{color:#f0ce93}
+:root[data-theme=dark] .membership-badge{background:#473456;color:#e6cdfa}
+:root[data-theme=dark] .membership-badge.current{background:#315641;color:#c2efd4}
+:root[data-theme=dark] .membership-badge.attention{background:#654b23;color:#ffe2a5}
+:root[data-theme=dark] .membership-empty,:root[data-theme=dark] .membership-guidance{background:#30263d;border-color:#66517a;color:#d0beda}
+:root[data-theme=dark] .payment-receipt{color:#b1e0c7}
+}
+@media print{html,body{color-scheme:light;background:#fff!important;color:#111!important}.appearance-toolbar{display:none!important}}
